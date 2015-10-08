@@ -1156,6 +1156,22 @@ With choices made, define relevant epics devices
 pco_args = ['PositionCompareMode', 'PositionCompareMinPosition',
             'PositionCompareMaxPosition', 'PositionCompareStepSize',
             'PositionComparePulseWidth', 'PositionCompareSettlingTime']
+
+softglue_args = ['FI1_Signal', 'FI2_Signal', 'FI3_Signal', 'FI4_Signal',
+                 'FI5_Signal', 'FI6_Signal', 'FI7_Signal', 'FI8_Signal',
+                 'FI9_Signal', 'FI10_Signal', 'FI11_Signal', 'FI12_Signal',
+                 'FI13_Signal', 'FI14_Signal', 'FI15_Signal', 'FI16_Signal',
+                 'FO17_Signal',
+                 'AND-1_IN1_Signal', 'AND-1_IN2_Signal', 'AND-1_OUT_Signal',
+                 'OR-1_IN1_Signal', 'OR-1_IN2_Signal', 'OR-1_OUT_Signal',
+                 'DnCntr-1_CLOCK_Signal', 'DnCntr-1_LOAD_Signal', 'DnCntr-1_PRESET', 'DnCntr-1_OUT_Signal',
+                 'DivByN-1_ENABLE_Signal', 'DivByN-1_CLOCK_Signal', 'DivByN-1_RESET_Signal', 'DivByN-1_N', 'DivByN-1_OUT_Signal',
+                 'DFF-1_CLOCK_Signal', 'DFF-1_CLEAR_Signal', 'DFF-1_OUT_Signal'
+                 'UpCntr-1_CLOCK_Signal', 'UpCntr-1_CLEAR_Signal', 'UpCntr-1_COUNTS',
+                 'UpCntr-2_CLOCK_Signal', 'UpCntr-2_CLEAR_Signal', 'UpCntr-2_COUNTS',
+                 'UpCntr-3_CLOCK_Signal', 'UpCntr-3_CLEAR_Signal', 'UpCntr-3_COUNTS',
+                 'BUFFER-1_IN_Signal', 'BUFFER-1_OUT_Signal']
+
 # option to load and read custom configuration
 if config.use_file.get():
     user_config = tkFileDialog.askopenfile(
@@ -1173,6 +1189,7 @@ elif config.stack_choice.get() == 'GPHP':
     mWpco = Device('XPSGP:m2', pco_args)
     bnc = PV('16IDB:cmdReply1_do_IO.AOUT')
     bnc_channel = 's02'
+    softglue = Device('16IDB:softGlue:', softglue_args)
 elif config.stack_choice.get() == 'GPHL':
     mX = Motor('16IDB:m31')
     mY = Motor('16IDB:m32')
@@ -1180,8 +1197,10 @@ elif config.stack_choice.get() == 'GPHL':
     mW = Motor('XPSGP:m1')
     mDet = Motor('16IDB:m6')
     mcs = Struck('16IDB:SIS1:')
+    mWpco = Device('XPSGP:m1', pco_args)
     bnc = PV('16IDB:cmdReply1_do_IO.AOUT')
     bnc_channel = 's01'
+    softglue = Device('16IDB:softGlue:', softglue_args)
 elif config.stack_choice.get() == 'LH':
     pass
     # mX = Motor('XPSLH:m1')
@@ -1193,6 +1212,7 @@ elif config.stack_choice.get() == 'LH':
     # mWpco = Device('XPSLH:m4', pco_args)
     # bnc = PV('16TEST1:cmdReply1_do_IO.AOUT')
     # bnc_channel = 's02'
+    # softglue = Device('16IDB:softGlue:', softglue_args)
 elif config.stack_choice.get() == 'BMDHP':
     pass
     # mX = Motor('XPSBMD:m5')
