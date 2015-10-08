@@ -507,6 +507,7 @@ class Rotation:
                 # Final actions plus data collection move
                 time_stamp = time.strftime('%d %b %Y %H:%M:%S',
                                            time.localtime())
+                softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                 mcs.start()
                 detector.Acquire = 1
                 mW.move(w_final, wait=True)
@@ -624,7 +625,7 @@ class Rotation:
                     # make initial moves and prepare for collection
                     mDet.move(self.detPos.get(), wait=True)
                     mW.move(w_zero, wait=True)
-                    time.sleep(0.5)
+                    time.sleep(0.1)
                     mW.VELO = temp_velo
                     # initialize struck for dc_ccd collection
                     mcs.stop()
@@ -655,6 +656,7 @@ class Rotation:
                     # Final actions plus data collection move
                     time_stamp = time.strftime('%d %b %Y %H:%M:%S',
                                                time.localtime())
+                    softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     mcs.start()
                     detector.Acquire = 1
                     mW.move(w_final, wait=True)
@@ -665,7 +667,7 @@ class Rotation:
                     image_num = str(detector.FileNumber)
                     prefix.imageNo.set(image_num.zfill(3))
                     mWpco.put('PositionCompareMode', 0)
-                    time.sleep(0.5)
+                    time.sleep(0.1)
                     detector.ShutterMode = 1
                     mW.VELO = perm_velo
                     if not mcs.Acquiring:
@@ -968,6 +970,10 @@ class Actions:
         mDet_ipos = mDet.RBV
         # switch BNC 7206
         bnc.put(bnc_channel)
+        # input all XPS-specific softglue info
+        softglue.put('DnCntr-1_PRESET', 0)
+        softglue.put('DivByN-1_N', 1)
+        softglue.put('FI15_Signal', 'motor')
         # Define list for iterating Cx
         sample_rows = [
             (xtal1, '_C1', xtal1.collect.get()),
@@ -1021,6 +1027,7 @@ class Actions:
             mZ.move(mZ_ipos, wait=True)
             mW.move(mW_ipos, wait=True)
             mDet.move(mDet_ipos, wait=True)
+            softglue.put('FI15_Signal', '')
             self.abort.set(0)
             abort_window.destroy()
             tkMessageBox.showinfo('Done', 'Data collection complete')
@@ -1050,6 +1057,7 @@ class Actions:
         mZ.move(mZ_icpos, wait=True)
         mW.move(mW_icpos, wait=True)
         mDet.move(mDet_icpos, wait=True)
+        softglue.put('FI15_Signal', 'motor')
         tkMessageBox.showinfo('Done', 'Data collection complete')
 
     def grid_scan(self):
@@ -1193,6 +1201,22 @@ With choices made, define relevant epics devices
 pco_args = ['PositionCompareMode', 'PositionCompareMinPosition',
             'PositionCompareMaxPosition', 'PositionCompareStepSize',
             'PositionComparePulseWidth', 'PositionCompareSettlingTime']
+
+softglue_args = ['FI1_Signal', 'FI2_Signal', 'FI3_Signal', 'FI4_Signal',
+                 'FI5_Signal', 'FI6_Signal', 'FI7_Signal', 'FI8_Signal',
+                 'FI9_Signal', 'FI10_Signal', 'FI11_Signal', 'FI12_Signal',
+                 'FI13_Signal', 'FI14_Signal', 'FI15_Signal', 'FI16_Signal',
+                 'FO17_Signal',
+                 'AND-1_IN1_Signal', 'AND-1_IN2_Signal', 'AND-1_OUT_Signal',
+                 'OR-1_IN1_Signal', 'OR-1_IN2_Signal', 'OR-1_OUT_Signal',
+                 'DnCntr-1_CLOCK_Signal', 'DnCntr-1_LOAD_Signal', 'DnCntr-1_PRESET', 'DnCntr-1_OUT_Signal',
+                 'DivByN-1_ENABLE_Signal', 'DivByN-1_CLOCK_Signal', 'DivByN-1_RESET_Signal', 'DivByN-1_N', 'DivByN-1_OUT_Signal',
+                 'DFF-1_CLOCK_Signal', 'DFF-1_CLEAR_Signal', 'DFF-1_OUT_Signal'
+                 'UpCntr-1_CLOCK_Signal', 'UpCntr-1_CLEAR_Signal', 'UpCntr-1_COUNTS',
+                 'UpCntr-2_CLOCK_Signal', 'UpCntr-2_CLEAR_Signal', 'UpCntr-2_COUNTS',
+                 'UpCntr-3_CLOCK_Signal', 'UpCntr-3_CLEAR_Signal', 'UpCntr-3_COUNTS',
+                 'BUFFER-1_IN_Signal', 'BUFFER-1_OUT_Signal']
+
 # option to load and read custom configuration
 if config.use_file.get():
     user_config = tkFileDialog.askopenfile(
@@ -1210,6 +1234,7 @@ elif config.stack_choice.get() == 'GPHP':
     mWpco = Device('XPSGP:m2', pco_args)
     bnc = PV('16IDB:cmdReply1_do_IO.AOUT')
     bnc_channel = 's02'
+    softglue = Device('16IDB:softGlue:', softglue_args)
 elif config.stack_choice.get() == 'GPHL':
     mX = Motor('16IDB:m31')
     mY = Motor('16IDB:m32')
@@ -1220,6 +1245,7 @@ elif config.stack_choice.get() == 'GPHL':
     mWpco = Device('XPSGP:m1', pco_args)
     bnc = PV('16IDB:cmdReply1_do_IO.AOUT')
     bnc_channel = 's01'
+    softglue = Device('16IDB:softGlue:', softglue_args)
 elif config.stack_choice.get() == 'LH':
     pass
     # mX = Motor('XPSLH:m1')
@@ -1231,6 +1257,7 @@ elif config.stack_choice.get() == 'LH':
     # mWpco = Device('XPSLH:m4', pco_args)
     # bnc = PV('16TEST1:cmdReply1_do_IO.AOUT')
     # bnc_channel = 's02'
+    # softglue = Device('16IDB:softGlue:', softglue_args)
 elif config.stack_choice.get() == 'BMDHP':
     pass
     # mX = Motor('XPSBMD:m5')
