@@ -591,13 +591,16 @@ class Rotation:
                     else:
                         return
                     # ###begin delay code test here
-                    temp_velo = 1 / self.tPerDeg.get()
-                    step_start_t = self.wStart.get() + each * step_size
-                    step_end_t = step_start_t + step_size
-                    offset = temp_velo * 0.039
-                    step_start = step_start_t - offset
-                    step_end = step_end_t - offset
+                    # ###temporarily comment out delay code
+                    # ###temp_velo = 1 / self.tPerDeg.get()
+                    # ###step_start_t = self.wStart.get() + each * step_size
+                    # ###step_end_t = step_start_t + step_size
+                    # ###offset = temp_velo * 0.039
+                    # ###step_start = step_start_t - offset
+                    # ###step_end = step_end_t - offset
                     # ###end delay test
+                    step_start = self.wStart.get() + each * step_size
+                    step_end = step_start + step_size
                     # Ensure first file of series does not exist
                     first_filename = full_file_name + \
                         '_' + prefix.imageNo.get() + '.tif'
@@ -614,7 +617,7 @@ class Rotation:
                             pass
                     # gather info to prep for move
                     perm_velo = mW.VELO
-                    # ###temp_velo = 1 / self.tPerDeg.get()
+                    temp_velo = 1 / self.tPerDeg.get()
                     w_zero = step_start - temp_velo * mW.ACCL * 1.5
                     w_final = step_end + temp_velo * mW.ACCL * 1.5
                     # TODO limit check
@@ -632,7 +635,11 @@ class Rotation:
                     sg_config.put('loadConfig1.PROC', 1, wait=True)
                     sg_config.put('name2', 'xps_master', wait=True)
                     sg_config.put('loadConfig2.PROC', 1, wait=True)
+                    open_preset = 8000000*(0.5245 - extras.open_delay.get())
+                    close_preset = 8000000*(0.5245 + actual_exposure - extras.close_delay.get())
                     softglue.put('DnCntr-2_PRESET', 32000, wait=True)
+                    softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
+                    softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
                     softglue.put('FI1_Signal', 'motor')
                     softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     # initialize struck for dc_ccd collection
@@ -700,7 +707,7 @@ class Rotation:
                                      prefix.sampleName.get() + '_P' + \
                                      prefix.pressureNo.get()
                         header_two = 'Sample stack: ' + config.stack_choice.get() + \
-                                    ', Detector: ' + config.detector_choice.get()
+                                     ', Detector: ' + config.detector_choice.get()
                         header_list = ['{:22}'.format('Timestamp'), '{:30}'.format('File Name'),
                                        '{:>8}'.format('Cen X'), '{:>8}'.format('Cen Y'),
                                        '{:>8}'.format('Sam Z'), '{:>8}'.format('Det. Y'),
@@ -717,7 +724,7 @@ class Rotation:
                     line_list = ['{:22}'.format(time_stamp), '{:30}'.format(first_filename),
                                  '{: 8.3f}'.format(mX.RBV), '{: 8.3f}'.format(mY.RBV),
                                  '{: 8.3f}'.format(mZ.RBV), '{: 8.3f}'.format(mDet.RBV),
-                                 '{: 8.2f}'.format(step_start_t), '{:8.2f}'.format(step_end_t),
+                                 '{: 8.2f}'.format(step_start), '{:8.2f}'.format(step_end),
                                  '{:^9}'.format(1), '{:8.3f}'.format(actual_exposure)]
                     text_line = ' '.join(line_list)
                     textfile.write(text_line + '\n')
@@ -1198,6 +1205,13 @@ class Extra:
         self.frame = Frame(master, padx=10, pady=5)
         self.frame.grid()
 
+        # define variables and set defaults
+        self.open_delay = DoubleVar()
+        self.close_delay = DoubleVar()
+        self.open_delay.set(0.032)
+        self.close_delay.set(0.046)
+
+        # define and place widgets
         self.label_d_up = Label(self.frame, text='D-spots')
         self.label_d_up.grid(row=0, column=0, padx=5, pady=5)
         self.label_c_up = Label(self.frame, text='C-spots')
@@ -1210,6 +1224,19 @@ class Extra:
         self.button_c_up.grid(row=1, column=1, padx=5, pady=5)
         self.button_c_dn = Button(self.frame, text='Less', command=lambda: self.decrement(xtal_list))
         self.button_c_dn.grid(row=1, column=2, padx=5, pady=5)
+
+        self.label_open_delay = Label(self.frame, text='Shutter open delay')
+        self.label_open_delay.grid(row=0, column=3, padx=5, pady=5)
+        self.label_close_delay = Label(self.frame, text='Shutter close delay')
+        self.label_close_delay.grid(row=1, column=3, padx=5, pady=5)
+        self.entry_open_delay = Entry(self.frame, textvariable=self.open_delay, width=8)
+        self.entry_open_delay.grid(row=0, column=4, padx=5, pady=5)
+        self.entry_open_delay.bind('<FocusOut>', self.open_delay_validate)
+        self.entry_open_delay.bind('<Return>', self.open_delay_validate)
+        self.entry_close_delay = Entry(self.frame, textvariable=self.close_delay, width=8)
+        self.entry_close_delay.grid(row=1, column=4, padx=5, pady=5)
+        self.entry_close_delay.bind('<FocusOut>', self.close_delay_validate)
+        self.entry_close_delay.bind('<Return>', self.close_delay_validate)
 
     def increment(self, target):
         for each in target[1:]:
@@ -1234,6 +1261,31 @@ class Extra:
                     target[last_shown].collect.set(0)
                     break
 
+    def open_delay_validate(self, event):
+        try:
+            val = self.open_delay.get()
+            isinstance(val, float)
+            if 0 <= val < 1:
+                self.open_delay.set('%.3f' % val)
+            else:
+                raise ValueError
+        except ValueError:
+            forced_min = 0.032
+            self.open_delay.set('%.3f' % forced_min)
+            invalid_entry()
+
+    def close_delay_validate(self, event):
+        try:
+            val = self.close_delay.get()
+            isinstance(val, float)
+            if 0 <= val < 1:
+                self.close_delay.set('%.3f' % val)
+            else:
+                raise ValueError
+        except ValueError:
+            forced_min = 0.046
+            self.close_delay.set('%.3f' % forced_min)
+            invalid_entry()
 
 
 
