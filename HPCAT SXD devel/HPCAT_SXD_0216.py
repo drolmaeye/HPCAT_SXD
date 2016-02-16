@@ -162,7 +162,7 @@ class PrefixMaker:
                                    width=8)
         self.pressureEntry.grid(row=3, column=2, sticky='e', pady=5)
 
-    def path_name_validation(self, event):
+    def path_name_validation(self, *event):
         val = self.pathName.get()
         if not (os.path.exists(val)):
             path_warn()
@@ -481,10 +481,10 @@ class Rotation:
                 mcs.put('InputMode', 3, wait=True)
                 mcs.put('OutputMode', 3, wait=True)
                 mcs.put('OutputPolarity', 0, wait=True)
-                mcs.put('LNEStretcherEnable', 1, wait=True)
-                mcs.put('LNEOutputPolarity', 1, wait=True)
-                mcs.put('LNEOutputDelay', 0, wait=True)
-                mcs.put('LNEOutputWidth', 1e-6, wait=True)
+                mcs.put('LNEStretcherEnable', 0, wait=True)
+                # mcs.put('LNEOutputPolarity', 1, wait=True)
+                # mcs.put('LNEOutputDelay', 0, wait=True)
+                # mcs.put('LNEOutputWidth', 1e-6, wait=True)
                 mcs.NuseAll = self.nPTS.get()
                 detector.AcquirePeriod = acq_period
                 detector.AcquireTime = exp_time
@@ -640,7 +640,8 @@ class Rotation:
                     softglue.put('DnCntr-2_PRESET', 32000, wait=True)
                     softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
                     softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
-                    softglue.put('FI1_Signal', 'motor')
+                    softglue.put('FI1_Signal', 'motor', wait=True)
+                    softglue.put('FO19_Signal', 'gate_shutter', wait=True)
                     softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     # initialize struck for dc_ccd collection
                     mcs.stop()
@@ -1057,6 +1058,7 @@ class Actions:
             mW.move(mW_ipos, wait=True)
             mDet.move(mDet_ipos, wait=True)
             softglue.put('FI1_Signal', '')
+            softglue.put('FO19_Signal', '0', wait=True)
             self.abort.set(0)
             abort_window.destroy()
             tkMessageBox.showinfo('Done', 'Data collection complete')
@@ -1087,6 +1089,7 @@ class Actions:
         mW.move(mW_icpos, wait=True)
         mDet.move(mDet_icpos, wait=True)
         softglue.put('FI1_Signal', '')
+        softglue.put('FO19_Signal', '0', wait=True)
         tkMessageBox.showinfo('Done', 'Data collection complete')
 
     def grid_scan(self):
@@ -1197,6 +1200,8 @@ class Actions:
         mDet.move(mDet_ipos, wait=True)
         self.abort.set(0)
         abort_window.destroy()
+        softglue.put('FI1_Signal', '')
+        softglue.put('FO19_Signal', '0', wait=True)
         tkMessageBox.showinfo('Done', 'Data collection complete')
 
 
@@ -1308,6 +1313,19 @@ def path_warn():
 
 def path_put(**kwargs):
     prefix.detPath.set(detector.get('FilePath_RBV', as_string=True))
+    # test User directory autofill Feb 2016
+    result = prefix.detPath.get()
+    if result[0:15] == '/mnt/16idb_data':
+        user_directory = 'X:' + result[15:]
+        windows_path = os.path.normpath(user_directory) + '\\'
+        prefix.pathName.set(windows_path)
+        prefix.path_name_validation()
+    elif result[0:13] == '/ramdisk/Data':
+        user_directory = 'P:' + result[13:]
+        windows_path = os.path.normpath(user_directory) + '\\'
+        prefix.pathName.set(windows_path)
+        prefix.path_name_validation()
+
 
 '''
 Program start, define primary UI
