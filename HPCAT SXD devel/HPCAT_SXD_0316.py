@@ -325,10 +325,13 @@ class Rotation:
         try:
             val = self.detPos.get()
             isinstance(val, float)
-            if mDet.within_limits(val):
+            back_min = val - mDet.BDST
+            back_max = val + mDet.BDST
+            if mDet.within_limits(back_min) and mDet.within_limits(back_max):
                 pass
             else:
-                raise ValueError
+                self.detPos.set(mDet.RBV)
+                limits_warn()
         except ValueError:
             self.detPos.set(mDet.RBV)
             invalid_entry()
@@ -438,7 +441,7 @@ class Rotation:
             ('wide', self.wide.get()),
             ('steps', self.steps.get())]
         for scan_type, checkbox in scan_types:
-            if not do.abort.get():
+            if not abort.get():
                 pass
             else:
                 return
@@ -457,8 +460,6 @@ class Rotation:
                     pass
                 else:
                     self.overwrite_warn()
-                    abort_window.lift()
-                    abort_window.grab_set()
                     if not self.warning:
                         continue
                     else:
@@ -575,8 +576,6 @@ class Rotation:
                 text_line = ' '.join(line_list)
                 textfile.write(text_line + '\n')
                 textfile.close()
-                # update to give abort a chance
-                abort_window.update()
             else:
                 pass
 
@@ -596,19 +595,10 @@ class Rotation:
                 # Next few lines are principle difference for IP and CCD
                 step_size = self.wRange.get() / num_points
                 for each in range(num_points):
-                    if not do.abort.get():
+                    if not abort.get():
                         pass
                     else:
                         return
-                    # ###begin delay code test here
-                    # ###temporarily comment out delay code
-                    # ###temp_velo = 1 / self.tPerDeg.get()
-                    # ###step_start_t = self.wStart.get() + each * step_size
-                    # ###step_end_t = step_start_t + step_size
-                    # ###offset = temp_velo * 0.039
-                    # ###step_start = step_start_t - offset
-                    # ###step_end = step_end_t - offset
-                    # ###end delay test
                     step_start = self.wStart.get() + each * step_size
                     step_end = step_start + step_size
                     # Ensure first file of series does not exist
@@ -619,8 +609,6 @@ class Rotation:
                         pass
                     else:
                         self.overwrite_warn()
-                        abort_window.lift()
-                        abort_window.grab_set()
                         if not self.warning:
                             continue
                         else:
@@ -647,7 +635,6 @@ class Rotation:
                     sg_config.put('loadConfig2.PROC', 1, wait=True)
                     open_preset = 8000000*(0.5245 - extras.open_delay.get())
                     close_preset = 8000000*(0.5245 + actual_exposure - extras.close_delay.get())
-                    softglue.put('DnCntr-2_PRESET', 32000, wait=True)
                     softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
                     softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
                     softglue.put('FI1_Signal', 'motor', wait=True)
@@ -664,7 +651,10 @@ class Rotation:
                     detector.ShutterMode = 0
                     detector.AcquirePeriod = acq_period
                     detector.AcquireTime = exp_time
-                    detector.FileName = full_file_name
+                    if not prefix.name_flag.get():
+                        detector.FileName = full_file_name
+                    else:
+                        detector.Filename = prefix.sampleName.get()
                     detector.TriggerMode = 0
                     detector.FileNumber = prefix.imageNo.get()
                     # set up pco
@@ -740,10 +730,6 @@ class Rotation:
                     text_line = ' '.join(line_list)
                     textfile.write(text_line + '\n')
                     textfile.close()
-                    # update to give abort a chance
-                    abort_window.update()
-            else:
-                pass
 
 
 class CrystalSpot:
@@ -933,8 +919,6 @@ class Actions:
         self.frame.grid()
 
         # define variables
-        self.abort = IntVar()
-        self.abort.set(0)
         self.continuous = IntVar()
         self.continuous.set(0)
 
@@ -963,7 +947,6 @@ class Actions:
         """
         Iterates data collection, file building, and routine for GUI checkboxes
         """
-        global abort_window
         prefix.image_no_validation()
         # Ensure file path exists, halt execution if it does not
         if os.path.exists(prefix.pathName.get()):
@@ -971,28 +954,8 @@ class Actions:
         else:
             path_warn()
             return
-        # setup abort window
-        abort_window = Toplevel()
-        xtop = root.winfo_x() + root.winfo_width() / 2 - 150
-        ytop = root.winfo_y() + root.winfo_height() / 2 - 150
-        abort_window.geometry('300x300+%d+%d' % (xtop, ytop))
-        abort_window.title('Working . . .')
-        # abort_window.configure(bg='white')
-        bigfont = tkFont.Font(size=10, weight='bold')
-        label1 = Label(abort_window, text='Data collection in progress')
-        label1.pack(side=TOP, pady=10)
-        abort_button = Button(abort_window, text='ABORT', height=2,
-                              width=15, font=bigfont, bg='red',
-                              command=lambda: self.abort.set(1))
-        abort_button.pack(pady=20)
-        label2 = Label(abort_window,
-                            text='Press ONCE and wait '
-                                 'patiently to abort data collection')
-        label2.pack(pady=10)
-        abort_window.grab_set()
-        abort_window.lift()
-        abort_window.update()
         # define recovery (or abort) values
+        abort.put(0)
         mX_ipos = mX.RBV
         mY_ipos = mY.RBV
         mZ_ipos = mZ.RBV
@@ -1000,8 +963,6 @@ class Actions:
         mDet_ipos = mDet.RBV
         # switch BNC 7206
         bnc.put(bnc_channel)
-        # input all XPS-specific softglue info
-        # moved elsewhere
         # Define list for iterating Cx
         sample_rows = [
             (xtal1, '_C1', xtal1.collect.get()),
@@ -1014,7 +975,7 @@ class Actions:
             (xtal8, '_C8', xtal8.collect.get()),
             (xtal9, '_C9', xtal9.collect.get())]
         for sample, c_filebit, xtal_collect in sample_rows:
-            if not self.abort.get():
+            if not abort.get():
                 pass
             else:
                 break
@@ -1024,7 +985,7 @@ class Actions:
                     pass
                 else:
                     sample.pos_define()
-                    time.sleep(1)
+                    time.sleep(0.1)
                 # move to Cx position for data collection
                 sample.move_to()
                 # Build partial file name for this Cx
@@ -1041,25 +1002,19 @@ class Actions:
                     (det7, '_D7', det7.collect.get()),
                     (det8, '_D8', det8.collect.get()),
                     (det9, '_D9', det9.collect.get())]
-                for position, d_filebit, det_collect in detector_rows:
-                    if not self.abort.get():
+                for det_n, d_filebit, det_collect in detector_rows:
+                    if not abort.get():
                         pass
                     else:
                         break
                     if det_collect:
                         # Build partial file name for this Dx
-                        position.rot_file_part = sample.cs_file_part + d_filebit
+                        det_n.rot_file_part = sample.cs_file_part + d_filebit
                         # Go to stack- and detector-appropriate routine
                         if config.detector_choice.get() == '1M':
-                            position.dc_1m_diffraction()
+                            det_n.dc_1m_diffraction()
                         elif config.detector_choice.get() == 'CCD':
-                            position.dc_ccd_diffraction()
-                        else:
-                            pass
-                    else:
-                        pass
-            else:
-                pass
+                            det_n.dc_ccd_diffraction()
         # return to initial positions (or resume continuous collection)
         if not self.continuous.get():
             mX.move(mX_ipos, wait=True)
@@ -1069,16 +1024,13 @@ class Actions:
             mDet.move(mDet_ipos, wait=True)
             softglue.put('FI1_Signal', '')
             softglue.put('FO19_Signal', '0', wait=True)
-            self.abort.set(0)
-            abort_window.destroy()
+            abort.set(0)
             tkMessageBox.showinfo('Done', 'Data collection complete')
-        elif self.abort.get():
-            self.abort.set(0)
+        elif abort.get():
+            abort.set(0)
             self.continuous.set(0)
-            abort_window.destroy()
         else:
             time.sleep(0.1)
-            abort_window.destroy()
 
     def cont_exp(self):
         # get initial values for continuous
@@ -1106,7 +1058,6 @@ class Actions:
         """
         Iterates data collection, file building, and routine for GUI checkboxes
         """
-        global abort_window
         prefix.image_no_validation()
         # Ensure file path exists, halt execution if it does not
         if os.path.exists(prefix.pathName.get()):
@@ -1114,29 +1065,6 @@ class Actions:
         else:
             path_warn()
             return
-        # setup abort window and clear any previous abort
-        abort_window = Toplevel()
-        xtop = root.winfo_x() + root.winfo_width() / 2 - 150
-        ytop = root.winfo_y() + root.winfo_height() / 2 - 150
-        abort_window.geometry('300x300+%d+%d' % (xtop, ytop))
-        abort_window.title('Working . . .')
-        bigfont = tkFont.Font(size=10, weight='bold')
-        current_index = StringVar()
-        label1 = Label(abort_window, text='Data collection in progress')
-        label1.pack(side=TOP, pady=10)
-        abort_button = Button(abort_window, text='ABORT', height=2,
-                              width=15, font=bigfont, bg='red',
-                              command=lambda: self.abort.set(1))
-        abort_button.pack(pady=20)
-        label2 = Label(abort_window,
-                            text='Press ONCE and wait '
-                                 'patiently to abort data collection')
-        label2.pack(pady=10)
-        label3 = Label(abort_window, textvariable=current_index)
-        label3.pack(pady=10)
-        abort_window.grab_set()
-        abort_window.lift()
-        abort_window.update()
         # define recovery (or abort) values
         mX_ipos = mX.RBV
         mY_ipos = mY.RBV
@@ -1147,7 +1075,7 @@ class Actions:
         bnc.put(bnc_channel)
         # Define grid for iteration (as opposed to Cx list)
         for zsteps in range(z_grid.num_steps.get()):
-            if not self.abort.get():
+            if not abort.get():
                 pass
             else:
                 break
@@ -1156,7 +1084,7 @@ class Actions:
             z_abs = mZ_ipos + z_rel
             mZ.move(z_abs, wait=True)
             for ysteps in range(y_grid.num_steps.get()):
-                if not self.abort.get():
+                if not abort.get():
                     pass
                 else:
                     break
@@ -1164,8 +1092,7 @@ class Actions:
                 g_filebit = str(g_index)
                 # display current data point
                 total = str(z_grid.num_steps.get() * y_grid.num_steps.get())
-                current_index.set('Grid point ' + g_filebit + ' of ' + total)
-                abort_window.update_idletasks()
+                # ###current_index.set('Grid point ' + g_filebit + ' of ' + total)
                 y_rel = y_grid.rel_min.get() + ysteps * y_grid.step_size.get()
                 y_abs = mY_ipos + y_rel
                 mY.move(y_abs, wait=True)
@@ -1184,7 +1111,7 @@ class Actions:
                     (det8, '_D8', det8.collect.get()),
                     (det9, '_D9', det9.collect.get())]
                 for position, d_filebit, det_collect in detector_rows:
-                    if not self.abort.get():
+                    if not abort.get():
                         pass
                     else:
                         break
@@ -1208,8 +1135,7 @@ class Actions:
         mZ.move(mZ_ipos, wait=True)
         mW.move(mW_ipos, wait=True)
         mDet.move(mDet_ipos, wait=True)
-        self.abort.set(0)
-        abort_window.destroy()
+        abort.set(0)
         softglue.put('FI1_Signal', '')
         softglue.put('FO19_Signal', '0', wait=True)
         tkMessageBox.showinfo('Done', 'Data collection complete')
@@ -1321,6 +1247,12 @@ def path_warn():
                              'Please modify User Directory and try again')
 
 
+def limits_warn():
+    tkMessageBox.showwarning('Limits Violation',
+                             'Target position(s) exceeds motor limits\n'
+                             'Input was reset to default value')
+
+
 def path_put(**kwargs):
     prefix.detPath.set(detector.get('FilePath_RBV', as_string=True))
     # test User directory autofill Feb 2016
@@ -1392,6 +1324,7 @@ elif config.stack_choice.get() == 'GPHP':
     bnc_channel = 's04'
     softglue = Device('16IDB:softGlue:', softglue_args)
     sg_config = Device('16IDB:SGMenu:', sg_config_args)
+    abort = PV('16IDB:Unidig1Bo6')
 
 elif config.stack_choice.get() == 'GPHL':
     mX = Motor('16IDB:m31')
@@ -1404,6 +1337,8 @@ elif config.stack_choice.get() == 'GPHL':
     bnc = PV('16IDB:cmdReply1_do_IO.AOUT')
     bnc_channel = 's05'
     softglue = Device('16IDB:softGlue:', softglue_args)
+    abort = PV('16IDB:Unidig1Bo6')
+
 elif config.stack_choice.get() == 'LH':
     pass
     # mX = Motor('XPSLH:m1')
