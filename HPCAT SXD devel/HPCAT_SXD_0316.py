@@ -461,6 +461,7 @@ class Rotation:
             self.collect.set(0)
             self.check_detCol.config(state=DISABLED)
             self.entry_num_wide.config(bg='red')
+        # figure ouut how to keep disabled
 
 
 
