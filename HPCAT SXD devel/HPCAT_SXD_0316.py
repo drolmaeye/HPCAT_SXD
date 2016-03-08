@@ -341,16 +341,12 @@ class Rotation:
         try:
             val = self.wStart.get()
             isinstance(val, float)
-            if mW.within_limits(val) and \
-                    mW.within_limits(val + self.wRange.get()):
-                pass
-            else:
-                raise ValueError
         except ValueError:
             self.wStart.set(-10.0)
             invalid_entry()
         finally:
             self.w_end_calc()
+            self.preflight_check()
 
     def w_range_validation(self, event):
         # value must be positive float and
@@ -358,18 +354,13 @@ class Rotation:
         try:
             val = self.wRange.get()
             isinstance(val, float)
-            if mW.within_limits(self.wStart.get() + val) and val > 1.0:
-                pass
-            else:
-                raise ValueError
         except ValueError:
             self.wRange.set(20.0)
             invalid_entry()
-            # ensure start plus default range does not exceed limits
-            self.w_start_validation()
         finally:
             self.w_end_calc()
             self.step_size_calc()
+            self.preflight_check()
 
     def w_end_calc(self):
         end = self.wStart.get() + self.wRange.get()
@@ -389,6 +380,7 @@ class Rotation:
             invalid_entry()
         finally:
             self.step_size_calc()
+            self.preflight_check()
 
     def num_wide_validation(self, event):
         # value must be positive integer
@@ -404,6 +396,7 @@ class Rotation:
             invalid_entry()
         finally:
             self.step_size_calc()
+            self.preflight_check()
 
     def step_size_calc(self):
         size = self.wRange.get() / self.nPTS.get()
@@ -414,13 +407,64 @@ class Rotation:
         try:
             val = self.tPerDeg.get()
             isinstance(val, float)
-            if val >= 0.05:
-                pass
-            else:
-                raise ValueError
         except ValueError:
             self.tPerDeg.set(1.0)
             invalid_entry()
+        finally:
+            self.preflight_check()
+
+    def preflight_check(self):
+        # ensure w_zero and w_final will not violate limits
+        temp_velo = 1/self.tPerDeg.get()
+        w_zero = self.wStart.get() - temp_velo * mW.ACCL * 1.5
+        w_final = self.wEnd.get() + temp_velo * mW.ACCL * 1.5
+        if mW.within_limits(w_zero):
+            self.check_detCol.config(state=NORMAL)
+            self.entry_wStart.config(bg='white')
+        else:
+            self.collect.set(0)
+            self.check_detCol.config(state=DISABLED)
+            self.entry_wStart.config(bg='red')
+        if mW.within_limits(w_final):
+            self.check_detCol.config(state=NORMAL)
+            self.label_wEnd.config(bg='SystemButtonFace')
+        else:
+            self.collect.set(0)
+            self.check_detCol.config(state=DISABLED)
+            self.label_wEnd.config(bg='red')
+        # check step size is okay
+        # at least 0.100 and must be integral to three decimal places
+        msize = self.stepSize.get()*10000
+        quotient = divmod(msize, 10)
+        if quotient[0] >= 100 and round(quotient[1], 5) == 0:
+            self.check_detCol.config(state=NORMAL)
+            self.label_stepSize.config(bg='SystemButtonFace')
+        else:
+            self.collect.set(0)
+            self.check_detCol.config(state=DISABLED)
+            self.label_stepSize.config(bg='red')
+        # check if t per degree is okay
+        if temp_velo <= mW_vmax:
+            self.check_detCol.config(state=NORMAL)
+            self.entry_tPerDeg.config(bg='White')
+        else:
+            self.collect.set(0)
+            self.check_detCol.config(state=DISABLED)
+            self.entry_tPerDeg.config(bg='red')
+        # check wide step size is okay
+        msize = (self.wRange.get()/self.num_wide.get())*10000
+        quotient = divmod(msize, 10)
+        if quotient[0] >= 100 and round(quotient[1], 5) == 0:
+            self.check_detCol.config(state=NORMAL)
+            self.entry_num_wide.config(bg='White')
+        else:
+            self.collect.set(0)
+            self.check_detCol.config(state=DISABLED)
+            self.entry_num_wide.config(bg='red')
+
+
+
+
 
     def overwrite_warn(self):
         self.warning = tkMessageBox.askyesno(
@@ -1325,6 +1369,7 @@ elif config.stack_choice.get() == 'GPHP':
     softglue = Device('16IDB:softGlue:', softglue_args)
     sg_config = Device('16IDB:SGMenu:', sg_config_args)
     abort = PV('16IDB:Unidig1Bo6')
+    mW_vmax = 10.0
 
 elif config.stack_choice.get() == 'GPHL':
     mX = Motor('16IDB:m31')
