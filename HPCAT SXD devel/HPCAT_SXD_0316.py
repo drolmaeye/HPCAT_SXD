@@ -138,13 +138,6 @@ class PrefixMaker:
         self.det_pathLabel2.grid(row=0, column=1, columnspan=3, pady=5)
         self.pathLabel = Label(self.frame, text='User directory')
         self.pathLabel.grid(row=1, column=0, padx=5, pady=5)
-        # try label with browse button
-        # ###self.pathEntry = Entry(self.frame, textvariable=self.pathName,
-        # ###                       width=46)
-        # ###self.pathEntry.grid(row=1, column=1, columnspan=3, pady=5, sticky='w')
-        # ###self.pathEntry.bind('<Button-1>', self.choose_directory)
-        # ###self.pathEntry.bind('<FocusOut>', self.path_name_validation)
-        # ###self.pathEntry.bind('<Return>', self.path_name_validation)
         self.label_user_dir = Label(self.frame, textvariable=self.pathName,
                                     relief=SUNKEN, width=40, anchor='w')
         self.label_user_dir.grid(row=1, column=1, columnspan=3, pady=5, sticky='w')
@@ -156,7 +149,8 @@ class PrefixMaker:
         self.sampleEntry = Entry(self.frame, textvariable=self.sampleName,
                                  width=46)
         self.sampleEntry.grid(row=2, column=1, columnspan=3, pady=5, sticky='w')
-
+        self.sampleEntry.bind('<FocusOut>', self.sample_name_validation)
+        self.sampleEntry.bind('<Return>', self.sample_name_validation)
         self.imageLabel = Label(self.frame, text='Image No.')
         self.imageLabel.grid(row=3, column=0, pady=5)
         self.imageEntry = Entry(self.frame, textvariable=self.imageNo, width=8)
@@ -181,6 +175,15 @@ class PrefixMaker:
             pass
         else:
             self.pathName.set(val + '\\')
+
+    def sample_name_validation(self, *event):
+        val = self.sampleName.get()
+        chars = set(' .\\/')
+        if not any((c in chars) for c in val):
+            pass
+        else:
+            self.sampleName.set('test')
+            invalid_entry()
 
     def image_no_validation(self, *event):
         try:
@@ -321,7 +324,8 @@ class Rotation:
 
     # define validation methods for each entry widget
     def det_pos_validation(self, event):
-        # value must be float within motor limits
+        # value must be float
+        # in this case, also must lie within backlash-affected limits
         try:
             val = self.detPos.get()
             isinstance(val, float)
@@ -336,8 +340,10 @@ class Rotation:
             self.detPos.set(mDet.RBV)
             invalid_entry()
 
+    # validations below typically deal only with format (int, float)
+    # position/velocity limits, etc. dealt with in preflight_check
     def w_start_validation(self, *event):
-        # value must be float within motor limits
+        # value must be float
         try:
             val = self.wStart.get()
             isinstance(val, float)
@@ -349,8 +355,7 @@ class Rotation:
             self.preflight_check()
 
     def w_range_validation(self, event):
-        # value must be positive float and
-        # together with start, must pass motor limits
+        # value must be positive float
         try:
             val = self.wRange.get()
             isinstance(val, float)
@@ -382,12 +387,12 @@ class Rotation:
             self.step_size_calc()
             self.preflight_check()
 
-    def num_wide_validation(self, event):
+    def num_wide_validation(self, *event):
         # value must be positive integer
         try:
             val = self.num_wide.get()
             isinstance(val, int)
-            if 0 < val <= self.nPTS.get():
+            if val > 0:
                 pass
             else:
                 raise ValueError
@@ -395,15 +400,13 @@ class Rotation:
             self.num_wide.set(1)
             invalid_entry()
         finally:
-            self.step_size_calc()
             self.preflight_check()
 
     def step_size_calc(self):
-        size = self.wRange.get() / self.nPTS.get()
-        self.stepSize.set(size)
+        self.stepSize.set(self.wRange.get()/self.nPTS.get())
 
     def t_per_deg_validation(self, event):
-        # value must be float larger than 0.05 (not more than 20 deg per sec)
+        # value must be float
         try:
             val = self.tPerDeg.get()
             isinstance(val, float)
@@ -414,58 +417,55 @@ class Rotation:
             self.preflight_check()
 
     def preflight_check(self):
+        # create grounding index
+        grounded = 0
         # ensure w_zero and w_final will not violate limits
         temp_velo = 1/self.tPerDeg.get()
         w_zero = self.wStart.get() - temp_velo * mW.ACCL * 1.5
         w_final = self.wEnd.get() + temp_velo * mW.ACCL * 1.5
         if mW.within_limits(w_zero):
-            self.check_detCol.config(state=NORMAL)
             self.entry_wStart.config(bg='white')
         else:
-            self.collect.set(0)
-            self.check_detCol.config(state=DISABLED)
+            grounded += 1
             self.entry_wStart.config(bg='red')
         if mW.within_limits(w_final):
-            self.check_detCol.config(state=NORMAL)
             self.label_wEnd.config(bg='SystemButtonFace')
         else:
-            self.collect.set(0)
-            self.check_detCol.config(state=DISABLED)
+            grounded += 1
             self.label_wEnd.config(bg='red')
-        # check step size is okay
-        # at least 0.100 and must be integral to three decimal places
+        # check step size is at least 0.1 and integral within 0.001 w.r.t. range
         msize = self.stepSize.get()*10000
-        quotient = divmod(msize, 10)
-        if quotient[0] >= 100 and round(quotient[1], 5) == 0:
-            self.check_detCol.config(state=NORMAL)
+        quotient = divmod(msize, 100)
+        print quotient
+        if quotient[0] >= 10 and round(quotient[1], 5) == 0:
             self.label_stepSize.config(bg='SystemButtonFace')
         else:
-            self.collect.set(0)
-            self.check_detCol.config(state=DISABLED)
+            grounded += 1
             self.label_stepSize.config(bg='red')
         # check if t per degree is okay
         if temp_velo <= mW_vmax:
-            self.check_detCol.config(state=NORMAL)
             self.entry_tPerDeg.config(bg='White')
         else:
-            self.collect.set(0)
-            self.check_detCol.config(state=DISABLED)
+            grounded += 1
             self.entry_tPerDeg.config(bg='red')
         # check wide step size is okay
         msize = (self.wRange.get()/self.num_wide.get())*10000
-        quotient = divmod(msize, 10)
-        if quotient[0] >= 100 and round(quotient[1], 5) == 0:
-            self.check_detCol.config(state=NORMAL)
+        quotient = divmod(msize, 100)
+        print quotient
+        if quotient[0] >= 10 and round(quotient[1], 5) == 0\
+                and self.num_wide.get() <= self.nPTS.get():
             self.entry_num_wide.config(bg='White')
+        else:
+            grounded += 1
+            self.entry_num_wide.config(bg='red')
+        # if any checks failed, uncheck and disable collect box
+        if grounded == 0:
+            self.check_detCol.config(state=NORMAL)
         else:
             self.collect.set(0)
             self.check_detCol.config(state=DISABLED)
-            self.entry_num_wide.config(bg='red')
-        # figure ouut how to keep disabled
-
-
-
-
+        # see if I can use this later
+        return grounded
 
     def overwrite_warn(self):
         self.warning = tkMessageBox.askyesno(
@@ -498,6 +498,7 @@ class Rotation:
                     full_file_name = self.rot_file_part + 's'
                     num_points = self.nPTS.get()
                 # Ensure first file of series does not exist
+                # ### start here march 10 2016
                 first_filename = full_file_name + \
                     '_' + prefix.imageNo.get() + '.tif'
                 full_file_path = prefix.pathName.get() + first_filename
@@ -638,7 +639,7 @@ class Rotation:
                     full_file_name = self.rot_file_part + 's'
                     num_points = self.nPTS.get()
                 # Next few lines are principle difference for IP and CCD
-                step_size = self.wRange.get() / num_points
+                step_size = self.wRange.get()/num_points
                 for each in range(num_points):
                     if not abort.get():
                         pass
@@ -647,8 +648,10 @@ class Rotation:
                     step_start = self.wStart.get() + each * step_size
                     step_end = step_start + step_size
                     # Ensure first file of series does not exist
-                    first_filename = full_file_name + \
-                        '_' + prefix.imageNo.get() + '.tif'
+                    if not prefix.name_flag.get():
+                        first_filename = full_file_name+ '_' + prefix.imageNo.get() + '.tif'
+                    else:
+                        first_filename = prefix.sampleName.get() + '_' + prefix.imageNo.get() + '.tif'
                     full_file_path = prefix.pathName.get() + first_filename
                     if not os.path.isfile(full_file_path):
                         pass
@@ -660,11 +663,10 @@ class Rotation:
                             pass
                     # gather info to prep for move
                     perm_velo = mW.VELO
-                    temp_velo = 1 / self.tPerDeg.get()
-                    w_zero = step_start - temp_velo * mW.ACCL * 1.5
-                    w_final = step_end + temp_velo * mW.ACCL * 1.5
-                    # TODO limit check
-                    actual_exposure = step_size * self.tPerDeg.get()
+                    temp_velo = 1/self.tPerDeg.get()
+                    w_zero = step_start - temp_velo*mW.ACCL*1.5
+                    w_final = step_end + temp_velo*mW.ACCL*1.5
+                    actual_exposure = step_size*self.tPerDeg.get()
                     # Exp time and period arbitrary + 5 seconds
                     acq_period = actual_exposure + 5
                     exp_time = acq_period
@@ -692,6 +694,7 @@ class Rotation:
                     mcs.put('OutputMode', 3, wait=True)
                     mcs.put('OutputPolarity', 0, wait=True)
                     mcs.put('LNEStretcherEnable', 0, wait=True)
+                    # fix this line below for wides or steps!!
                     mcs.NuseAll = self.nPTS.get()
                     detector.ShutterMode = 0
                     detector.AcquirePeriod = acq_period
@@ -700,7 +703,6 @@ class Rotation:
                         detector.FileName = full_file_name
                     else:
                         detector.Filename = prefix.sampleName.get()
-                    detector.TriggerMode = 0
                     detector.FileNumber = prefix.imageNo.get()
                     # set up pco
                     mWpco.put('PositionCompareMode', 1, wait=True)
@@ -803,6 +805,9 @@ class CrystalSpot:
         # file builder variable below
         self.cs_file_part = 'None'
 
+        # set up trace to autofill blank collects
+        self.collect.trace('w', self.autofill_xyz)
+
         # make and place widgets
         self.label_pos = Label(self.frame, text=self.pos, width=8)
         self.label_pos.grid(row=0, column=0, sticky='e')
@@ -845,6 +850,12 @@ class CrystalSpot:
         mX.move(self.x.get(), wait=True)
         mY.move(self.y.get(), wait=True)
         mZ.move(self.z.get(), wait=True)
+
+    def autofill_xyz(self, *args):
+        if not self.x.get() == '':
+            pass
+        else:
+            self.pos_define()
 
 
 class GridPoints:
@@ -941,7 +952,7 @@ class GridPoints:
         try:
             val = self.num_steps.get()
             isinstance(val, int)
-            if val > 1:
+            if val > 0:
                 self.calc_size()
             else:
                 raise ValueError
@@ -1025,12 +1036,6 @@ class Actions:
             else:
                 break
             if xtal_collect:
-                # if positions are blank (unusual), use current positions
-                if not sample.x.get() == '':
-                    pass
-                else:
-                    sample.pos_define()
-                    time.sleep(0.1)
                 # move to Cx position for data collection
                 sample.move_to()
                 # Build partial file name for this Cx
@@ -1069,10 +1074,10 @@ class Actions:
             mDet.move(mDet_ipos, wait=True)
             softglue.put('FI1_Signal', '')
             softglue.put('FO19_Signal', '0', wait=True)
-            abort.set(0)
+            abort.put(0)
             tkMessageBox.showinfo('Done', 'Data collection complete')
         elif abort.get():
-            abort.set(0)
+            abort.put(0)
             self.continuous.set(0)
         else:
             time.sleep(0.1)
@@ -1180,7 +1185,7 @@ class Actions:
         mZ.move(mZ_ipos, wait=True)
         mW.move(mW_ipos, wait=True)
         mDet.move(mDet_ipos, wait=True)
-        abort.set(0)
+        abort.put(0)
         softglue.put('FI1_Signal', '')
         softglue.put('FO19_Signal', '0', wait=True)
         tkMessageBox.showinfo('Done', 'Data collection complete')
@@ -1272,8 +1277,6 @@ class Extra:
             forced_min = 0.046
             self.close_delay.set('%.3f' % forced_min)
             invalid_entry()
-
-
 
 
 # define basic functions
