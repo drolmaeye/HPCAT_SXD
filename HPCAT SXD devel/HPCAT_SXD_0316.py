@@ -436,7 +436,6 @@ class Rotation:
         # check step size is at least 0.1 and integral within 0.001 w.r.t. range
         msize = self.stepSize.get()*10000
         quotient = divmod(msize, 100)
-        print quotient
         if quotient[0] >= 10 and round(quotient[1], 5) == 0:
             self.label_stepSize.config(bg='SystemButtonFace')
         else:
@@ -448,12 +447,11 @@ class Rotation:
         else:
             grounded += 1
             self.entry_tPerDeg.config(bg='red')
-        # check wide step size is okay
+        # check wide step size/number is okay
         msize = (self.wRange.get()/self.num_wide.get())*10000
         quotient = divmod(msize, 100)
-        print quotient
         if quotient[0] >= 10 and round(quotient[1], 5) == 0\
-                and self.num_wide.get() <= self.nPTS.get():
+                and self.num_wide.get() < self.nPTS.get():
             self.entry_num_wide.config(bg='White')
         else:
             grounded += 1
@@ -498,7 +496,6 @@ class Rotation:
                     full_file_name = self.rot_file_part + 's'
                     num_points = self.nPTS.get()
                 # Ensure first file of series does not exist
-                # ### start here march 10 2016
                 first_filename = full_file_name + \
                     '_' + prefix.imageNo.get() + '.tif'
                 full_file_path = prefix.pathName.get() + first_filename
@@ -688,14 +685,21 @@ class Rotation:
                     softglue.put('FO19_Signal', 'gate_shutter', wait=True)
                     softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     # initialize struck for dc_ccd collection
+                    # modify this for 3801 scaler at 13BMC!!!!!
                     mcs.stop()
                     mcs.ExternalMode()
                     mcs.put('InputMode', 3, wait=True)
                     mcs.put('OutputMode', 3, wait=True)
                     mcs.put('OutputPolarity', 0, wait=True)
                     mcs.put('LNEStretcherEnable', 0, wait=True)
-                    # fix this line below for wides or steps!!
-                    mcs.NuseAll = self.nPTS.get()
+                    # set for right number of channels
+                    if scan_type == 'wide':
+                        if num_points == 1:
+                            mcs.NuseAll = self.nPTS.get()
+                        else:
+                            mcs.NuseAll = self.num_wide.get()
+                    if scan_type == 'steps':
+                        mcs.NuseAll = 2
                     detector.ShutterMode = 0
                     detector.AcquirePeriod = acq_period
                     detector.AcquireTime = exp_time
@@ -715,8 +719,15 @@ class Rotation:
                     else:
                         mWpco.PositionCompareMinPosition = step_start
                         mWpco.PositionCompareMaxPosition = step_end
-                    # TODO make some arbitrary cutoff here
-                    mWpco.PositionCompareStepSize = step_size / self.nPTS.get()
+                    # here begin test of new criteria
+                    if scan_type == 'wide':
+                        if num_points == 1:
+                            mWpco.PositionCompareStepSize = step_size/self.nPTS.get()
+                        else:
+                            mWpco.PositionCompareStepSize = step_size/self.num_wide.get()
+                    if scan_type == 'steps':
+                        mWpco.PositionCompareStepSize = step_size/2
+                    # end test new criteria
                     # Final actions plus data collection move
                     time_stamp = time.strftime('%d %b %Y %H:%M:%S',
                                                time.localtime())
@@ -736,16 +747,15 @@ class Rotation:
                     mW.VELO = perm_velo
                     if not mcs.Acquiring:
                         ara = mcs.readmca(1)
-                        ara_bit = ara[:self.nPTS.get()]
-                        total_time = sum(ara_bit) / 50e6
-                        expected_time = self.tPerDeg.get() * step_size
+                        ara_bit = ara[:mcs.NuseAll.get()]
+                        total_time = sum(ara_bit)/50e6
+                        expected_time = self.tPerDeg.get()*step_size
                         time_error = total_time - expected_time
                         print total_time
                         print expected_time
                         print time_error
                     else:
                         mcs.stop()
-                        # TODO Send warning to front panel
                     # Open (or create) text file for writing
                     textfile_name = prefix.sampleName.get() + '_P' + \
                         prefix.pressureNo.get() + '.txt'
@@ -852,6 +862,8 @@ class CrystalSpot:
         mZ.move(self.z.get(), wait=True)
 
     def autofill_xyz(self, *args):
+        if not self.collect.get():
+            return
         if not self.x.get() == '':
             pass
         else:
@@ -982,22 +994,28 @@ class Actions:
         bigfont = tkFont.Font(size=10, weight='bold')
 
         # make and place widgets
+        self.shutter_sync_button = Button(self.frame, text='Shutter Sync', height=2, width=15,
+                                          font=bigfont, command=self.show_shutter_sync)
+        self.shutter_sync_button.grid(row=0, column=0)
         self.start_exp_button = Button(self.frame, text='Start Exposure',
                                        foreground='blue', height=2, width=15,
                                        font=bigfont, command=self.start_exp)
-        self.start_exp_button.grid(row=0, column=0, padx=60)
+        self.start_exp_button.grid(row=0, column=1, padx=60)
         self.continuous_button = Button(self.frame,
                                         text='Continuous',
                                         height=2, width=15, font=bigfont,
                                         command=self.cont_exp)
-        self.continuous_button.grid(row=0, column=1, padx=5)
+        self.continuous_button.grid(row=0, column=2, padx=5)
         self.grid_scan_button = Button(self.frame, text='Grid Scan',
                                        height=2, width=15, font=bigfont,
                                        command=self.grid_scan)
-        self.grid_scan_button.grid(row=0, column=2, padx=5)
+        self.grid_scan_button.grid(row=0, column=3, padx=5)
         self.quit_button = Button(self.frame, text='Quit', height=2, width=15,
                                   font=bigfont, command=quit_now)
-        self.quit_button.grid(row=0, column=3, padx=5)
+        self.quit_button.grid(row=0, column=4, padx=5)
+
+    def show_shutter_sync(self):
+        shutter.popup.deiconify()
 
     def start_exp(self):
         """
@@ -1129,8 +1147,8 @@ class Actions:
                 pass
             else:
                 break
-            g_index = zsteps * z_grid.num_steps.get()
-            z_rel = z_grid.rel_min.get() + zsteps * z_grid.step_size.get()
+            g_index = zsteps*z_grid.num_steps.get()
+            z_rel = z_grid.rel_min.get() + zsteps*z_grid.step_size.get()
             z_abs = mZ_ipos + z_rel
             mZ.move(z_abs, wait=True)
             for ysteps in range(y_grid.num_steps.get()):
@@ -1173,12 +1191,6 @@ class Actions:
                             position.dc_1m_diffraction()
                         elif config.detector_choice.get() == 'CCD':
                             position.dc_ccd_diffraction()
-                        else:
-                            pass
-                    else:
-                        pass
-            else:
-                pass
         # return to initial positions (or resume continuous collection)
         mX.move(mX_ipos, wait=True)
         mY.move(mY_ipos, wait=True)
@@ -1191,66 +1203,82 @@ class Actions:
         tkMessageBox.showinfo('Done', 'Data collection complete')
 
 
-class Extra:
+class Shutter:
     def __init__(self, master):
-        self.frame = Frame(master, padx=10, pady=5)
+        self.popup = Toplevel(master)
+        self.popup.title('Shutter Synchronization Control')
+
+        self.frame = Frame(self.popup)
         self.frame.grid()
 
-        # define variables and set defaults
+        # define instance variables and set defaults
         self.open_delay = DoubleVar()
         self.close_delay = DoubleVar()
+        self.motor_dwell = DoubleVar()
+        self.shutter_dwell = DoubleVar()
+        self.open_error = StringVar()
+        self.close_error = StringVar()
+        self.open_correction = DoubleVar()
+        self.close_correction = DoubleVar()
         self.open_delay.set(0.032)
         self.close_delay.set(0.046)
+        self.motor_dwell.set('')
+        self.shutter_dwell.set('')
+        self.open_error.set('')
+        self.close_error.set('')
+        self.open_correction.set('')
+        self.close_correction.set('')
 
         # define and place widgets
-        self.label_d_up = Label(self.frame, text='D-spots')
-        self.label_d_up.grid(row=0, column=0, padx=5, pady=5)
-        self.label_c_up = Label(self.frame, text='C-spots')
-        self.label_c_up.grid(row=1, column=0, padx=5, pady=5)
-        self.button_d_up = Button(self.frame, text='More', command=lambda: self.increment(det_list))
-        self.button_d_up.grid(row=0, column=1, padx=5, pady=5)
-        self.button_d_dn = Button(self.frame, text='Less', command=lambda: self.decrement(det_list))
-        self.button_d_dn.grid(row=0, column=2, padx=5, pady=5)
-        self.button_c_up = Button(self.frame, text='More', command=lambda: self.increment(xtal_list))
-        self.button_c_up.grid(row=1, column=1, padx=5, pady=5)
-        self.button_c_dn = Button(self.frame, text='Less', command=lambda: self.decrement(xtal_list))
-        self.button_c_dn.grid(row=1, column=2, padx=5, pady=5)
-
         self.label_open_delay = Label(self.frame, text='Shutter open delay')
-        self.label_open_delay.grid(row=0, column=3, padx=5, pady=5)
+        self.label_open_delay.grid(row=0, column=0, padx=5, pady=5)
         self.label_close_delay = Label(self.frame, text='Shutter close delay')
-        self.label_close_delay.grid(row=1, column=3, padx=5, pady=5)
+        self.label_close_delay.grid(row=1, column=0, padx=5, pady=5)
         self.entry_open_delay = Entry(self.frame, textvariable=self.open_delay, width=8)
-        self.entry_open_delay.grid(row=0, column=4, padx=5, pady=5)
+        self.entry_open_delay.grid(row=0, column=1, padx=5, pady=5)
         self.entry_open_delay.bind('<FocusOut>', self.open_delay_validate)
         self.entry_open_delay.bind('<Return>', self.open_delay_validate)
         self.entry_close_delay = Entry(self.frame, textvariable=self.close_delay, width=8)
-        self.entry_close_delay.grid(row=1, column=4, padx=5, pady=5)
+        self.entry_close_delay.grid(row=1, column=1, padx=5, pady=5)
         self.entry_close_delay.bind('<FocusOut>', self.close_delay_validate)
         self.entry_close_delay.bind('<Return>', self.close_delay_validate)
+        self.label_motor_dwell_label = Label(self.frame, text='Motor dwell')
+        self.label_motor_dwell_label.grid(row=2, column=0, padx=5, pady=5)
+        self.label_shutter_dwell_label = Label(self.frame, text='Shutter dwell')
+        self.label_shutter_dwell_label.grid(row=3, column=0, padx=5, pady=5)
+        self.label_motor_dwell_data = Label(self.frame, textvariable=self.motor_dwell,
+                                            width=7, relief=SUNKEN)
+        self.label_motor_dwell_data.grid(row=2, column=1, padx=5, pady=5)
+        self.label_shutter_dwell_data = Label(self.frame, textvariable=self.shutter_dwell,
+                                              width=7, relief=SUNKEN)
+        self.label_shutter_dwell_data.grid(row=3, column=1, padx=5, pady=5)
+        self.label_open_error_label = Label(self.frame, text='Shutter open error')
+        self.label_open_error_label.grid(row=5, column=0, padx=5, pady=5)
+        self.label_close_error_label = Label(self.frame, text='Shutter close error')
+        self.label_close_error_label.grid(row=6, column=0, padx=5, pady=5)
+        self.label_open_error_data = Label(self.frame, textvariable=self.open_error,
+                                           width=10, relief=SUNKEN)
+        self.label_open_error_data.grid(row=5, column=1, padx=5, pady=5)
+        self.label_close_error_data = Label(self.frame, textvariable=self.close_error,
+                                            width=10, relief=SUNKEN)
+        self.label_close_error_data.grid(row=6, column=1, )
+        self.head_correction = Label(self.frame, text='Suggested\nDelays')
+        self.head_correction.grid(row=4, column=2, padx=5, pady=5)
+        self.label_open_correction_data = Label(self.frame, textvariable=self.open_correction,
+                                                width=7, relief=SUNKEN)
+        self.label_open_correction_data.grid(row=5, column=2, padx=5, pady=5)
+        self.label_close_correction_data = Label(self.frame, textvariable=self.close_correction,
+                                                 width=7, relief=SUNKEN)
+        self.label_close_correction_data.grid(row=6, column=2, padx=5, pady=5)
+        self.button_make_correction = Button(self.frame, text='Apply Correction',
+                                             command=self.modify_delay)
+        self.button_make_correction.grid(row=5, rowspan=2, column=3, padx=10)
 
-    def increment(self, target):
-        for each in target[1:]:
-            if each.frame.winfo_ismapped():
-                pass
-            else:
-                each.frame.grid()
-                break
 
-    def decrement(self, target):
-        if target[-1].frame.winfo_ismapped():
-            target[-1].frame.grid_remove()
-            target[-1].collect.set(0)
-            return
-        else:
-            for each in target[2:]:
-                if each.frame.winfo_ismapped():
-                    pass
-                else:
-                    last_shown = target.index(each) - 1
-                    target[last_shown].frame.grid_remove()
-                    target[last_shown].collect.set(0)
-                    break
+
+
+        # hide window on startup
+        self.popup.withdraw()
 
     def open_delay_validate(self, event):
         try:
@@ -1278,6 +1306,151 @@ class Extra:
             self.close_delay.set('%.3f' % forced_min)
             invalid_entry()
 
+    def shutter_error_calc(self):
+        # get 8MHz counts for each component
+        motor_counts = softglue.get('UpCntr-1_COUNTS')
+        shutter_counts = softglue.get('UpCntr-3_COUNTS')
+        delta_counts = softglue.get('UpCntr-4_COUNTS')
+        # determine if shutter preceded motor
+        if softglue.get('DFF-4_OUT_BI'):
+            sign = -1
+        else:
+            sign = 1
+        # define endpoints w.r.t. tm_zero = 0
+        tm_final = motor_counts
+        ts_zero = delta_counts*sign
+        ts_final = ts_zero + shutter_counts
+        # calculate errors and corrections in seconds
+        freq = 8000000
+        motor_dwell = motor_counts/freq
+        shutter_dwell = shutter_counts/freq
+        open_error = ts_zero/freq
+        close_error = (ts_final - tm_final)/freq
+        open_correction = (self.open_delay.get() + open_error)/freq
+        close_correction = (self.close_delay.get() + open_error + close_error)/freq
+        if not shutter_counts == 0:
+            self.motor_dwell.set('%.3f' % motor_dwell)
+            self.shutter_dwell.set('%.3f' % shutter_dwell)
+            if open_error < 0:
+                op_message = '%.3f' % str(abs(open_error)) + ' early'
+            else:
+                op_message = '%.3f' % str(open_error) + ' late'
+            self.open_error.set(op_message)
+            if close_error < 0:
+                cl_message = '%.3f' % str(abs(close_error)) + ' early'
+            else:
+                cl_message = '%.3f' % str(close_error) + ' late'
+            self.close_error.set(cl_message)
+            self.open_correction.set('%.3f' % open_correction)
+            self.close_correction.set('%.3f' % close_correction)
+        else:
+            self.motor_dwell.set('%.3f' % motor_dwell)
+
+    def error_calc_clear(self):
+        self.motor_dwell.set('')
+        self.shutter_dwell.set('')
+        self.open_error.set('')
+        self.close_error.set('')
+        self.open_correction.set('')
+        self.close_correction.set('')
+
+    def modify_delay(self):
+        try:
+            val = self.open_correction.get()
+            isinstance(val, float)
+        except ValueError:
+            return
+        self.open_delay.set('%.3f' % self.open_correction.get())
+        self.close_delay.set('%.3f' % self.close_correction.get())
+
+
+class Extra:
+    def __init__(self, master):
+        self.frame = Frame(master, padx=10, pady=5)
+        self.frame.grid()
+
+        # define variables and set defaults
+        self.open_delay = DoubleVar()
+        self.close_delay = DoubleVar()
+        self.open_delay.set(0.032)
+        self.close_delay.set(0.046)
+
+        # define and place widgets
+        self.label_d_up = Label(self.frame, text='D-spots')
+        self.label_d_up.grid(row=0, column=0, padx=5, pady=5)
+        self.label_c_up = Label(self.frame, text='C-spots')
+        self.label_c_up.grid(row=1, column=0, padx=5, pady=5)
+        self.button_d_up = Button(self.frame, text='More', command=lambda: self.increment(det_list))
+        self.button_d_up.grid(row=0, column=1, padx=5, pady=5)
+        self.button_d_dn = Button(self.frame, text='Less', command=lambda: self.decrement(det_list))
+        self.button_d_dn.grid(row=0, column=2, padx=5, pady=5)
+        self.button_c_up = Button(self.frame, text='More', command=lambda: self.increment(xtal_list))
+        self.button_c_up.grid(row=1, column=1, padx=5, pady=5)
+        self.button_c_dn = Button(self.frame, text='Less', command=lambda: self.decrement(xtal_list))
+        self.button_c_dn.grid(row=1, column=2, padx=5, pady=5)
+
+        # ###self.label_open_delay = Label(self.frame, text='Shutter open delay')
+        # ###self.label_open_delay.grid(row=0, column=3, padx=5, pady=5)
+        # ###self.label_close_delay = Label(self.frame, text='Shutter close delay')
+        # ###self.label_close_delay.grid(row=1, column=3, padx=5, pady=5)
+        # ###self.entry_open_delay = Entry(self.frame, textvariable=self.open_delay, width=8)
+        # ###self.entry_open_delay.grid(row=0, column=4, padx=5, pady=5)
+        # ###self.entry_open_delay.bind('<FocusOut>', self.open_delay_validate)
+        # ###self.entry_open_delay.bind('<Return>', self.open_delay_validate)
+        # ###self.entry_close_delay = Entry(self.frame, textvariable=self.close_delay, width=8)
+        # ###self.entry_close_delay.grid(row=1, column=4, padx=5, pady=5)
+        # ###self.entry_close_delay.bind('<FocusOut>', self.close_delay_validate)
+        # ###self.entry_close_delay.bind('<Return>', self.close_delay_validate)
+
+    def increment(self, target):
+        for each in target[1:]:
+            if each.frame.winfo_ismapped():
+                pass
+            else:
+                each.frame.grid()
+                break
+
+    def decrement(self, target):
+        if target[-1].frame.winfo_ismapped():
+            target[-1].frame.grid_remove()
+            target[-1].collect.set(0)
+            return
+        else:
+            for each in target[2:]:
+                if each.frame.winfo_ismapped():
+                    pass
+                else:
+                    last_shown = target.index(each) - 1
+                    target[last_shown].frame.grid_remove()
+                    target[last_shown].collect.set(0)
+                    break
+
+    # ###def open_delay_validate(self, event):
+    # ###    try:
+    # ###        val = self.open_delay.get()
+    # ###        isinstance(val, float)
+    # ###        if 0 <= val < 1:
+    # ###            self.open_delay.set('%.3f' % val)
+    # ###        else:
+    # ###            raise ValueError
+    # ###    except ValueError:
+    # ###        forced_min = 0.032
+    # ###        self.open_delay.set('%.3f' % forced_min)
+    # ###        invalid_entry()
+    # ###
+    # ###def close_delay_validate(self, event):
+    # ###    try:
+    # ###        val = self.close_delay.get()
+    # ###        isinstance(val, float)
+    # ###        if 0 <= val < 1:
+    # ###            self.close_delay.set('%.3f' % val)
+    # ###        else:
+    # ###            raise ValueError
+    # ###    except ValueError:
+    # ###        forced_min = 0.046
+    # ###        self.close_delay.set('%.3f' % forced_min)
+    # ###        invalid_entry()
+
 
 # define basic functions
 def quit_now():
@@ -1299,6 +1472,10 @@ def limits_warn():
     tkMessageBox.showwarning('Limits Violation',
                              'Target position(s) exceeds motor limits\n'
                              'Input was reset to default value')
+
+
+def hide_window():
+    shutter.popup.withdraw()
 
 
 def path_put(**kwargs):
@@ -1483,6 +1660,7 @@ xtal9 = CrystalSpot(frameCrystalSpot, label='C9')
 y_grid = GridPoints(frameGridPoints, label='Cen Y (horizontal)')
 z_grid = GridPoints(frameGridPoints, label='Sam Z (vertical)')
 do = Actions(frameControl)
+shutter = Shutter(root)
 
 det_list = [det1, det2, det3, det4, det5,
             det6, det7, det8, det9]
@@ -1493,6 +1671,7 @@ for each in det_list[3:9]:
 for each in xtal_list[3:9]:
     each.frame.grid_remove()
 
+shutter.popup.protocol('WM_DELETE_WINDOW', hide_window)
 path_put()
 root.deiconify()
 root.mainloop()
