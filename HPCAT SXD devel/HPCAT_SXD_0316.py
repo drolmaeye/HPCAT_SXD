@@ -1394,6 +1394,8 @@ class Shutter:
             self.close_correction.set('%.3f' % close_correction)
         else:
             self.motor_dwell.set('%.3f' % motor_dwell)
+            self.open_error.set('Unknown')
+            self.close_error.set('Unknown')
 
     def error_calc_clear(self):
         self.motor_dwell.set('')
