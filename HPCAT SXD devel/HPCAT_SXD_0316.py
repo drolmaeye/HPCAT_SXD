@@ -1625,16 +1625,20 @@ elif config.stack_choice.get() == 'GPHL':
 
 elif config.stack_choice.get() == 'LH':
     pass
-    # mX = Motor('XPSLH:m1')
-    # mY = Motor('XPSLH:m2')
-    # mZ = Motor('XPSLH:m3')
-    # mW = Motor('XPSLH:m4')
-    # mDet = Motor('16IDB:m13')
-    # mcs = Struck('16IDB:SIS1:')
-    # mWpco = Device('XPSLH:m4', pco_args)
-    # bnc = PV('16TEST1:cmdReply1_do_IO.AOUT')
-    # bnc_channel = 's04'
-    # softglue = Device('16IDB:softGlue:', softglue_args)
+    mX = Motor('XPSLH:m1')
+    mY = Motor('XPSLH:m2')
+    mZ = Motor('XPSLH:m3')
+    mW = Motor('XPSLH:m4')
+    mDet = Motor('16IDB:m13')
+    mcs = Struck('16IDB:SIS1:')
+    mWpco = Device('XPSLH:m4', pco_args)
+    bnc = PV('16TEST1:cmdReply1_do_IO.AOUT')
+    bnc_channel = 's04'
+    softglue = Device('16IDB:softGlue:', softglue_args)
+    sg_config = Device('16IDB:SGMenu:', sg_config_args)
+    abort = PV('16IDB:Unidig1Bo6')
+    mW_vmax = 10.0
+
 elif config.stack_choice.get() == 'BMDHP':
     pass
     # mX = Motor('XPSBMD:m5')
