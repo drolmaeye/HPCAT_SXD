@@ -241,7 +241,7 @@ class Rotation:
         self.warning = False
 
         # set initial variable values
-        self.detPos.set(mDet.RBV)
+        self.detPos.set('%.3f' % mDet.RBV)
         if idet == 'D1':
             self.collect.set(1)
             self.wide.set(1)
@@ -677,8 +677,8 @@ class Rotation:
                     sg_config.put('loadConfig1.PROC', 1, wait=True)
                     sg_config.put('name2', 'xps_master', wait=True)
                     sg_config.put('loadConfig2.PROC', 1, wait=True)
-                    open_preset = 8000000*(0.5245 - extras.open_delay.get())
-                    close_preset = 8000000*(0.5245 + actual_exposure - extras.close_delay.get())
+                    open_preset = 8000000*(0.5245 - shutter.open_delay.get())
+                    close_preset = 8000000*(0.5245 + actual_exposure - shutter.close_delay.get())
                     softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
                     softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
                     softglue.put('FI1_Signal', 'motor', wait=True)
@@ -747,7 +747,7 @@ class Rotation:
                     mW.VELO = perm_velo
                     if not mcs.Acquiring:
                         ara = mcs.readmca(1)
-                        ara_bit = ara[:mcs.NuseAll.get()]
+                        ara_bit = ara[:mcs.get('CurrentChannel')]
                         total_time = sum(ara_bit)/50e6
                         expected_time = self.tPerDeg.get()*step_size
                         time_error = total_time - expected_time
@@ -1269,7 +1269,7 @@ class Shutter:
         self.open_correction = DoubleVar()
         self.close_correction = DoubleVar()
         self.open_delay.set(0.032)
-        self.close_delay.set(0.046)
+        self.close_delay.set(0.048)
         self.motor_dwell.set('')
         self.shutter_dwell.set('')
         self.open_error.set('')
@@ -1351,7 +1351,7 @@ class Shutter:
             else:
                 raise ValueError
         except ValueError:
-            forced_min = 0.046
+            forced_min = 0.048
             self.close_delay.set('%.3f' % forced_min)
             invalid_entry()
 
@@ -1375,20 +1375,20 @@ class Shutter:
         shutter_dwell = shutter_counts/freq
         open_error = ts_zero/freq
         close_error = (ts_final - tm_final)/freq
-        open_correction = (self.open_delay.get() + open_error)/freq
-        close_correction = (self.close_delay.get() + open_error + close_error)/freq
+        open_correction = (self.open_delay.get() + open_error)
+        close_correction = (self.close_delay.get() + close_error)
         if not shutter_counts == 0:
             self.motor_dwell.set('%.3f' % motor_dwell)
             self.shutter_dwell.set('%.3f' % shutter_dwell)
             if open_error < 0:
-                op_message = '%.3f' % str(abs(open_error)) + ' early'
+                op_message = '%.3f' % abs(open_error) + ' early'
             else:
-                op_message = '%.3f' % str(open_error) + ' late'
+                op_message = '%.3f' % open_error + ' late'
             self.open_error.set(op_message)
             if close_error < 0:
-                cl_message = '%.3f' % str(abs(close_error)) + ' early'
+                cl_message = '%.3f' % abs(close_error) + ' early'
             else:
-                cl_message = '%.3f' % str(close_error) + ' late'
+                cl_message = '%.3f' % close_error + ' late'
             self.close_error.set(cl_message)
             self.open_correction.set('%.3f' % open_correction)
             self.close_correction.set('%.3f' % close_correction)
@@ -1446,10 +1446,10 @@ class Extra:
         self.frame.grid()
 
         # define variables and set defaults
-        self.open_delay = DoubleVar()
-        self.close_delay = DoubleVar()
-        self.open_delay.set(0.032)
-        self.close_delay.set(0.046)
+        # ###self.open_delay = DoubleVar()
+        # ###self.close_delay = DoubleVar()
+        # ###self.open_delay.set(0.032)
+        # ###self.close_delay.set(0.046)
 
         # define and place widgets
         self.label_d_up = Label(self.frame, text='D-spots')
@@ -1632,7 +1632,7 @@ elif config.stack_choice.get() == 'LH':
     mDet = Motor('16IDB:m13')
     mcs = Struck('16IDB:SIS1:')
     mWpco = Device('XPSLH:m4', pco_args)
-    bnc = PV('16TEST1:cmdReply1_do_IO.AOUT')
+    bnc = PV('16IDB:cmdReply1_do_IO.AOUT')
     bnc_channel = 's04'
     softglue = Device('16IDB:softGlue:', softglue_args)
     sg_config = Device('16IDB:SGMenu:', sg_config_args)
