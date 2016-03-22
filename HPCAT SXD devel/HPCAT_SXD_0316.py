@@ -14,7 +14,7 @@ from epics import *
 from epics.devices import Struck
 import time
 import os.path
-
+import XPS_Q8_drivers
 
 # define classes
 class ExpConfigure:
@@ -677,13 +677,14 @@ class Rotation:
                     sg_config.put('loadConfig1.PROC', 1, wait=True)
                     sg_config.put('name2', 'xps_master', wait=True)
                     sg_config.put('loadConfig2.PROC', 1, wait=True)
+                    softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     open_preset = 8000000*(0.5245 - shutter.open_delay.get())
                     close_preset = 8000000*(0.5245 + actual_exposure - shutter.close_delay.get())
                     softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
                     softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
                     softglue.put('FI1_Signal', 'motor', wait=True)
                     softglue.put('FO19_Signal', 'gate_shutter', wait=True)
-                    softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
+                    # ###softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     # initialize struck for dc_ccd collection
                     # modify this for 3801 scaler at 13BMC!!!!!
                     mcs.stop()
@@ -1552,6 +1553,27 @@ def path_put(**kwargs):
         prefix.path_name_validation()
 
 
+def xps_initialize():
+    if config.stack_choice.get() == 'LH':
+        myxps = XPS_Q8_drivers.XPS()
+        socketId = myxps.TCP_ConnectToServer('164.54.164.104', 5001, 20)
+        activated = myxps.EventExtendedGet(socketId, 0)
+        if activated == [-83, 'EventExtendedGet(0,char *,char *)']:
+            myxps.EventExtendedConfigurationTriggerSet(socketId, ('Always', 'Group4.Pos.SGamma.MotionStart'), ('0', '0'), ('0', '0'), ('0', '0'), ('0', '0'))
+            myxps.EventExtendedConfigurationActionSet(socketId, ['GPIO3.DO.DOSet'], '1', '1', '0', '0')
+            myxps.EventExtendedStart(socketId)
+            myxps.EventExtendedConfigurationTriggerSet(socketId, ('Always', 'Group4.Pos.SGamma.MotionEnd'), ('0', '0'), ('0', '0'), ('0', '0'), ('0', '0'))
+            myxps.EventExtendedConfigurationActionSet(socketId, ['GPIO3.DO.DOSet'], '1', '0', '0', '0')
+            myxps.EventExtendedStart(socketId)
+            activated = myxps.EventExtendedGet(socketId, 0)
+            print activated
+            activated = myxps.EventExtendedGet(socketId, 1)
+            print activated
+        else:
+            print 'XPS already initialized'
+        myxps.TCP_CloseSocket(socketId)
+
+
 '''
 Program start, define primary UI
 '''
@@ -1682,7 +1704,7 @@ elif config.detector_choice.get() == 'PE':
 else:
     pass
 
-
+xps_initialize()
 detector.add_callback('FilePath_RBV', callback=path_put)
 # frames for displaying groups of objects
 frameFiles = Frame(root)
