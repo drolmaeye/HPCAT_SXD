@@ -707,7 +707,7 @@ class Rotation:
                     if not prefix.name_flag.get():
                         detector.FileName = full_file_name
                     else:
-                        detector.Filename = prefix.sampleName.get()
+                        detector.FileName = prefix.sampleName.get()
                     detector.FileNumber = prefix.imageNo.get()
                     # set up pco
                     mWpco.put('PositionCompareMode', 1, wait=True)
