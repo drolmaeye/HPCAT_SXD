@@ -577,10 +577,14 @@ class Rotation:
                 mW.VELO = perm_velo
                 if not mcs.Acquiring:
                     ara = mcs.readmca(1)
-                    ara_bit = ara[:mcs.get('CurrentChannel')]
-                    # total_time = sum(ara_bit)/50e6
-                    total_time = ara_bit / 50e6
-                    expected_time = single_pass
+                    if isinstance(ara, int):
+                        print 'int'
+                        total_time = ara/50e6
+                    else:
+                        print 'array'
+                        ara_bit = ara[0]
+                        total_time = ara_bit/50e6
+                    expected_time = self.tPerDeg.get()*self.wRange.get()
                     time_error = total_time - expected_time
                     print total_time
                     print expected_time
@@ -736,9 +740,13 @@ class Rotation:
                     mW.VELO = perm_velo
                     if not mcs.Acquiring:
                         ara = mcs.readmca(1)
-                        ara_bit = ara[:mcs.get('CurrentChannel')]
-                        # total_time = sum(ara_bit)/50e6
-                        total_time = ara_bit/50e6
+                        if isinstance(ara, int):
+                            # print 'int'
+                            total_time = ara/50e6
+                        else:
+                            # print 'array'
+                            ara_bit = ara[0]
+                            total_time = ara_bit/50e6
                         expected_time = self.tPerDeg.get()*step_size
                         time_error = total_time - expected_time
                         print total_time
