@@ -15,7 +15,7 @@ from epics.devices import Struck
 import time
 import os.path
 import ftplib
-import XPS_Q8_drivers
+import XPS_C8_drivers
 
 
 # define classes
@@ -579,17 +579,17 @@ class Rotation:
                 detector.NumImages = num_points
                 # set up trajectory
                 make_trajectory(zero=w_zero, min=self.wStart.get(), max=self.wEnd.get(), velo=temp_velo, motor=mW)
-                myxps = XPS_Q8_drivers.XPS()
+                myxps = XPS_C8_drivers.XPS()
                 socketId = myxps.TCP_ConnectToServer(xps_ip, 5001, 20)
                 single_pass = self.wRange.get()*self.tPerDeg.get()
-                myxps.MultipleAxesPVTPulseOutputSet(socketId, 'M', 2, 3, single_pass)
+                myxps.MultipleAxesPVTPulseOutputSet(socketId, 'GROUP1', 2, 3, single_pass)
                 # Final actions plus data collection move
                 time_stamp = time.strftime('%d %b %Y %H:%M:%S',
                                            time.localtime())
                 softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                 mcs.start()
                 detector.Acquire = 1
-                myxps.MultipleAxesPVTExecution(socketId, 'M', 'traj.trj', 1)
+                myxps.MultipleAxesPVTExecution(socketId, 'GROUP1', 'traj.trj', 1)
                 myxps.TCP_CloseSocket(socketId)
                 while detector.Acquire:
                     time.sleep(0.1)
@@ -699,15 +699,16 @@ class Rotation:
                     exp_time = acq_period
                     # make initial moves and prepare for collection
                     mDet.move(self.detPos.get(), wait=True)
+                    mDetnu.move(self.detNuPos.get(), wait=True)
                     mW.move(w_zero, wait=True)
                     time.sleep(0.1)
                     mW.VELO = temp_velo
                     # try to initialize softglue here
                     # ###sg_config.put('name1', 'clear_all', wait=True)
                     # ###sg_config.put('loadConfig1.PROC', 1, wait=True)
-                    sg_config.put('name2', 'xps_master', wait=True)
-                    sg_config.put('loadConfig2.PROC', 1, wait=True)
-                    sg_config.put('loadConfig2.PROC', 1, wait=True)
+                    # ###sg_config.put('name2', 'xps_master', wait=True)
+                    # ###sg_config.put('loadConfig2.PROC', 1, wait=True)
+                    # ###sg_config.put('loadConfig2.PROC', 1, wait=True)
                     softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     open_preset = 8000000*(0.5245 - shutter.open_delay.get())
                     close_preset = 8000000*(0.5245 + actual_exposure - shutter.close_delay.get())
@@ -744,16 +745,16 @@ class Rotation:
                     detector.FileNumber = prefix.imageNo.get()
                     # set up trajectory
                     make_trajectory(zero=w_zero, min=step_start, max=step_end, velo=temp_velo, motor=mW)
-                    myxps = XPS_Q8_drivers.XPS()
+                    myxps = XPS_C8_drivers.XPS()
                     socketId = myxps.TCP_ConnectToServer(xps_ip, 5001, 20)
-                    myxps.MultipleAxesPVTPulseOutputSet(socketId, 'M', 2, 3, actual_exposure)
+                    myxps.MultipleAxesPVTPulseOutputSet(socketId, 'GROUP1', 2, 3, actual_exposure)
                     # Final actions plus data collection move
                     time_stamp = time.strftime('%d %b %Y %H:%M:%S',
                                                time.localtime())
                     softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     mcs.start()
                     detector.Acquire = 1
-                    myxps.MultipleAxesPVTExecution(socketId, 'M', 'traj.trj', 1)
+                    myxps.MultipleAxesPVTExecution(socketId, 'GROUP1', 'traj.trj', 1)
                     myxps.TCP_CloseSocket(socketId)
                     detector.Acquire = 0
                     while detector.DetectorState_RBV:
@@ -768,11 +769,11 @@ class Rotation:
                         ara = mcs.readmca(1)
                         if isinstance(ara, int):
                             # print 'int'
-                            total_time = ara/50e6
+                            total_time = ara/1e6
                         else:
                             # print 'array'
                             ara_bit = ara[0]
-                            total_time = ara_bit/50e6
+                            total_time = ara_bit/1e6
                         expected_time = self.tPerDeg.get()*step_size
                         time_error = total_time - expected_time
                         print total_time
@@ -794,7 +795,7 @@ class Rotation:
                                      ', Detector: ' + config.detector_choice.get()
                         header_list = ['{:22}'.format('Timestamp'), '{:30}'.format('File Name'),
                                        '{:>8}'.format('Cen X'), '{:>8}'.format('Cen Y'),
-                                       '{:>8}'.format('Sam Z'), '{:>8}'.format('Det. Y'),
+                                       '{:>8}'.format('Sam Z'), '{:>8}'.format('Det. Del'), '{:>8}'.format('Det. Nu'),
                                        '{:>8}'.format('Start'), '{:>8}'.format('End'),
                                        '{:^8}'.format('Images'), '{:>8}'.format('Exp. time')]
                         header_three = ' '.join(header_list)
@@ -807,7 +808,7 @@ class Rotation:
                     # Add line to text file and close
                     line_list = ['{:22}'.format(time_stamp), '{:30}'.format(first_filename),
                                  '{: 8.3f}'.format(mX.RBV), '{: 8.3f}'.format(mY.RBV),
-                                 '{: 8.3f}'.format(mZ.RBV), '{: 8.3f}'.format(mDet.RBV),
+                                 '{: 8.3f}'.format(mZ.RBV), '{: 8.3f}'.format(mDet.RBV), '{: 8.3f}'.format(mDetnu.RBV),
                                  '{: 8.2f}'.format(step_start), '{:8.2f}'.format(step_end),
                                  '{:^9}'.format(1), '{:8.3f}'.format(actual_exposure)]
                     text_line = ' '.join(line_list)
@@ -1294,8 +1295,8 @@ class Shutter:
         self.close_error = StringVar()
         self.open_correction = DoubleVar()
         self.close_correction = DoubleVar()
-        self.open_delay.set(0.032)
-        self.close_delay.set(0.048)
+        self.open_delay.set(0.160)
+        self.close_delay.set(0.069)
         self.motor_dwell.set('')
         self.shutter_dwell.set('')
         self.open_error.set('')
@@ -1579,7 +1580,7 @@ def path_put(**kwargs):
 
 
 def xps_initialize():
-        myxps = XPS_Q8_drivers.XPS()
+        myxps = XPS_C8_drivers.XPS()
         socketId = myxps.TCP_ConnectToServer(xps_ip, 5001, 20)
         activated = myxps.EventExtendedGet(socketId, 0)
         if activated == [-83, 'EventExtendedGet(0,char *,char *)']:
@@ -1599,9 +1600,9 @@ def xps_initialize():
 
 
 def make_trajectory(zero, min, max, velo, motor):
-    line_a = ['0.525', '0', '0', '0', '0', '0', '0', '0', '0']
-    line_b = ['0', '0', '0', '0', '0', '0', '0', '0', '0']
-    line_c = ['0.525', '0', '0', '0', '0', '0', '0', '0', '0']
+    line_a = ['0.525', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0']
+    line_b = ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0']
+    line_c = ['0.525', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0']
     if motor.get('DIR') == 0:
         sign = 1
     else:
@@ -1610,12 +1611,12 @@ def make_trajectory(zero, min, max, velo, motor):
     delta_xb = sign*(max - min)
     velo_ab = sign*velo
     delta_tb = delta_xb/velo_ab
-    line_a[7] = str(delta_xac)
-    line_a[8] = str(velo_ab)
+    line_a[1] = str(delta_xac)
+    line_a[2] = str(velo_ab)
     line_b[0] = str(delta_tb)
-    line_b[7] = str(delta_xb)
-    line_b[8] = str(velo_ab)
-    line_c[7] = str(delta_xac)
+    line_b[1] = str(delta_xb)
+    line_b[2] = str(velo_ab)
+    line_c[1] = str(delta_xac)
     line_a = ','.join(line_a)
     line_b = ','.join(line_b)
     line_c = ','.join(line_c)
@@ -1642,6 +1643,7 @@ root.withdraw()
 config = ExpConfigure(root)
 # line below can be commented in/out and edited for autoconfig
 config.stack_choice.set('13BMC')
+config.detector_choice.set('CCD')
 if not config.stack_choice.get() == NONE:
     config.popup.destroy()
 else:
@@ -1749,8 +1751,8 @@ elif config.stack_choice.get() == '13BMC':
     mDetnu = Motor('13BMC:m38')
     mcs = Struck('13BMC:SIS1:')
     softglue = Device('13BMC:softGlue:', softglue_args)
-    sg_config = Device('13BMC:SGMenu:', sg_config_args)
-    abort = PV('13BMC:Unidig1BoXX')
+    # sg_config = Device('13BMC:SGMenu:', sg_config_args)
+    abort = PV('13BMC:Unidig2Bo0')
     mW_vmax = 5.0
     xps_ip = '164.54.160.124'
     detector = Device('13MARCCD3:cam1:', detector_args)
@@ -1764,20 +1766,20 @@ detector_args = ['ShutterMode', 'ShutterControl', 'AcquireTime',
                  'FileName', 'FileNumber', 'AutoIncrement',
                  'FullFileName_RBV']
 
-if config.use_file.get():
-    pass
-elif config.detector_choice.get() == '1M':
-    detector = Device('HP1M-PIL1:cam1:', detector_args)
-elif config.detector_choice.get() == 'CCD':
-    detector = Device('16IDB:MARCCD:cam1:', detector_args)
-elif config.detector_choice.get() == 'IP':
-    pass
-    # detector = Device('16BMD:MAR345:cam1:', detector_args)
-elif config.detector_choice.get() == 'PE':
-    pass
-    # detector = Device('16IDB:xxx:xxx:', detector_args)
-else:
-    pass
+# ###if config.use_file.get():
+# ###    pass
+# ###elif config.detector_choice.get() == '1M':
+# ###    detector = Device('HP1M-PIL1:cam1:', detector_args)
+# ###elif config.detector_choice.get() == 'CCD':
+# ###    detector = Device('16IDB:MARCCD:cam1:', detector_args)
+# ###elif config.detector_choice.get() == 'IP':
+# ###    pass
+# ###    # detector = Device('16BMD:MAR345:cam1:', detector_args)
+# ###elif config.detector_choice.get() == 'PE':
+# ###    pass
+# ###    # detector = Device('16IDB:xxx:xxx:', detector_args)
+# ###else:
+# ###    pass
 
 detector.add_callback('FilePath_RBV', callback=path_put)
 # frames for displaying groups of objects
@@ -1833,6 +1835,6 @@ for each in xtal_list[3:9]:
 shutter.popup.protocol('WM_DELETE_WINDOW', hide_shutter)
 working.popup.protocol('WM_DELETE_WINDOW', hide_working)
 path_put()
-xps_initialize()
+# xps_initialize()
 root.deiconify()
 root.mainloop()
