@@ -1103,6 +1103,9 @@ class Actions:
         mW_ipos = mW.RBV
         mDet_ipos = mDet.RBV
         mDetnu_ipos = mDetnu.RBV
+        # prep shutter for softglue operation
+        softglue.put('FO19_Signal', '0', wait=True)
+        unidig_shutter.put('1', wait=True)
         # Define list for iterating Cx
         sample_rows = [
             (xtal1, '_C1', xtal1.collect.get()),
@@ -1158,7 +1161,9 @@ class Actions:
             mDet.move(mDet_ipos, wait=True)
             mDetnu.move(mDetnu_ipos, wait=True)
             softglue.put('FI1_Signal', '')
-            softglue.put('FO19_Signal', '0', wait=True)
+            #restore unidig shutter control
+            unidig_shutter.put('0', wait=True)
+            softglue.put('FO19_Signal', '', wait=True)
             abort.put(0)
             process_stop()
             tkMessageBox.showinfo('Done', 'Data collection complete')
@@ -1176,6 +1181,9 @@ class Actions:
         mW_icpos = mW.RBV
         mDet_icpos = mDet.RBV
         mDetnu_icpos = mDetnu.RBV
+        # prep shutter for softglue operation
+        softglue.put('FO19_Signal', '0', wait=True)
+        unidig_shutter.put('1', wait=True)
         self.continuous.set(1)
         while self.continuous.get():
             self.start_exp()
@@ -1189,7 +1197,9 @@ class Actions:
         mDet.move(mDet_icpos, wait=True)
         mDetnu.move(mDetnu_icpos, wait=True)
         softglue.put('FI1_Signal', '')
-        softglue.put('FO19_Signal', '0', wait=True)
+        # restore unidig shutter control
+        unidig_shutter.put('0', wait=True)
+        softglue.put('FO19_Signal', '', wait=True)
         process_stop()
         tkMessageBox.showinfo('Done', 'Data collection complete')
 
@@ -1212,6 +1222,9 @@ class Actions:
         mW_ipos = mW.RBV
         mDet_ipos = mDet.RBV
         mDetnu_ipos = mDetnu.RBV
+        # prep shutter for softglue operation
+        softglue.put('FO19_Signal', '0', wait=True)
+        unidig_shutter.put('1', wait=True)
         # Define grid for iteration (as opposed to Cx list)
         for zsteps in range(z_grid.num_steps.get()):
             if not abort.get():
@@ -1273,7 +1286,9 @@ class Actions:
         mDetnu.move(mDetnu_ipos, wait=True)
         abort.put(0)
         softglue.put('FI1_Signal', '')
-        softglue.put('FO19_Signal', '0', wait=True)
+        # restore unidig shutter control
+        unidig_shutter.put('0', wait=True)
+        softglue.put('FO19_Signal', '', wait=True)
         process_stop()
         tkMessageBox.showinfo('Done', 'Data collection complete')
 
@@ -1752,6 +1767,7 @@ elif config.stack_choice.get() == '13BMC':
     mcs = Struck('13BMC:SIS1:')
     softglue = Device('13BMC:softGlue:', softglue_args)
     # sg_config = Device('13BMC:SGMenu:', sg_config_args)
+    unidig_shutter = PV('13BMC:Unidig1Bo12')
     abort = PV('13BMC:Unidig2Bo0')
     mW_vmax = 5.0
     xps_ip = '164.54.160.124'
