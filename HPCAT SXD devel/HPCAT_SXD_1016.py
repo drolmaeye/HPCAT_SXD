@@ -1721,6 +1721,7 @@ def path_put(**kwargs):
 
 
 def xps_initialize():
+    if not config.stack_choice.get() == 'BMDHL':
         myxps = XPS_Q8_drivers.XPS()
         socketId = myxps.TCP_ConnectToServer(xps_ip, 5001, 20)
         activated = myxps.EventExtendedGet(socketId, 0)
