@@ -2,33 +2,27 @@ import XPS_Q8_drivers
 
 myxps = XPS_Q8_drivers.XPS()
 
-socketId = myxps.TCP_ConnectToServer('164.54.164.24', 5001, 20)
-# ###print socketId
-# ###group = 'Group3'
-# ###positioner = group + '.Pos'
-# ###print positioner
-# ###ec, cp = myxps.GroupPositionCurrentGet(socketId, positioner, 1)
-# ###print ec, cp
-# ###myxps.GPIODigitalSet(socketId, 'GPIO3.DO', 1, 1)
-# ###print myxps.GPIODigitalGet(socketId, 'GPIO3.DO')
-# ###myxps.GPIODigitalSet(socketId, 'GPIO3.DO', 2, 1)
-# ###print myxps.GPIODigitalGet(socketId, 'GPIO3.DO')
-# ###myxps.GPIODigitalSet(socketId, 'GPIO3.DO', 1, 0)
-# ###print myxps.GPIODigitalGet(socketId, 'GPIO3.DO')
-
-activated = myxps.EventExtendedGet(socketId, 0)
-print activated
-if activated == [-83, 'EventExtendedGet(0,char *,char *)']:
-    myxps.EventExtendedConfigurationTriggerSet(socketId, ('Always', 'Group4.Pos.SGamma.MotionStart'), ('0', '0'), ('0', '0'), ('0', '0'), ('0', '0'))
-    myxps.EventExtendedConfigurationActionSet(socketId, ['GPIO3.DO.DOSet'], '1', '1', '0', '0')
-    myxps.EventExtendedStart(socketId)
-    myxps.EventExtendedConfigurationTriggerSet(socketId, ('Always', 'Group4.Pos.SGamma.MotionEnd'), ('0', '0'), ('0', '0'), ('0', '0'), ('0', '0'))
-    myxps.EventExtendedConfigurationActionSet(socketId, ['GPIO3.DO.DOSet'], '1', '0', '0', '0')
-    myxps.EventExtendedStart(socketId)
-    activated = myxps.EventExtendedGet(socketId, 0)
-    print activated
-    activated = myxps.EventExtendedGet(socketId, 1)
-    print activated
+socketId = myxps.TCP_ConnectToServer('164.54.164.46', 5001, 20)
+print socketId
+group = 'M'
+positioner = group + '.X'
+print positioner
+ec, cp = myxps.GroupPositionCurrentGet(socketId, positioner, 1)
+print ec, cp
+status = myxps.GroupStatusGet(socketId, 'M')
+print status
+if 9 < status[1] < 20:
+    print 'okay'
 else:
-    pass
+    print 'trouble'
+    kill = myxps.GroupKill(socketId, group)
+    print kill
+    initialize = myxps.GroupInitialize(socketId, group)
+    print initialize
+    home = myxps.GroupHomeSearch(socketId, group)
+    print home
+    move = myxps.GroupMoveAbsolute(socketId, group, [1.000])
+    print move
+    # enable = myxps.GroupMotionEnable(socketId, group)
+    # print enable
 myxps.TCP_CloseSocket(socketId)

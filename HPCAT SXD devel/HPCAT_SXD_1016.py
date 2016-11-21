@@ -860,6 +860,8 @@ class Rotation:
                     close_preset = accl_plus_fly_steps - (temp_velo/resolution*shutter.close_delay.get())
                     # ###open_preset = 8000000*(0.5245 - shutter.open_delay.get())
                     # ###close_preset = 8000000*(0.5245 + actual_exposure - shutter.close_delay.get())
+                    softglue.put('DnCntr-1_PRESET', accl_steps, wait=True)
+                    softglue.put('DivByN-1_N', micro_steps, wait=True)
                     softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
                     softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
                     softglue.put('FI1_Signal', 'motor', wait=True)
