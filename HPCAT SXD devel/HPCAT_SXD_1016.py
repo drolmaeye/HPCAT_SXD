@@ -1714,12 +1714,18 @@ def path_put(**kwargs):
         user_directory = 'X:' + result[15:]
         windows_path = os.path.normpath(user_directory) + '\\'
         prefix.pathName.set(windows_path)
-        prefix.path_name_validation()
+        # prefix.path_name_validation()
     elif result[0:13] == '/ramdisk/Data':
         user_directory = 'P:' + result[13:]
         windows_path = os.path.normpath(user_directory) + '\\'
         prefix.pathName.set(windows_path)
-        prefix.path_name_validation()
+        # prefix.path_name_validation()
+    else:
+        windows_path = 'path error'
+    if not os.path.exists(windows_path):
+        prefix.label_user_dir.config(bg='red')
+    else:
+        prefix.label_user_dir.config(bg='SystemButtonFace')
 
 
 def xps_initialize():
