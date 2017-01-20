@@ -864,7 +864,7 @@ class Rotation:
                     softglue.put('DivByN-1_N', micro_steps, wait=True)
                     softglue.put('DnCntr-3_PRESET', open_preset, wait=True)
                     softglue.put('DnCntr-4_PRESET', close_preset, wait=True)
-                    softglue.put('FI1_Signal', 'motor', wait=True)
+                    softglue.put('FI6_Signal', 'motor', wait=True)
                     softglue.put('FO19_Signal', 'gate_shutter', wait=True)
                     # ###softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     # initialize struck for dc_ccd collection
@@ -898,6 +898,7 @@ class Rotation:
                                                time.localtime())
                     softglue.put('BUFFER-1_IN_Signal', '1!', wait=True)
                     mcs.start()
+                    detector.Acquire = 1
                     mW.move(w_final, wait=True)
                     detector.Acquire = 0
                     while detector.DetectorState_RBV:
@@ -1303,6 +1304,8 @@ class Actions:
             mW.move(mW_ipos, wait=True)
             mDet.move(mDet_ipos, wait=True)
             softglue.put('FI1_Signal', '')
+            # for BMD comment out above and comment in below
+            # ### softglue.put('FI6_Signal', '')
             softglue.put('FO19_Signal', '0', wait=True)
             abort.put(0)
             process_stop()
@@ -1332,6 +1335,8 @@ class Actions:
         mW.move(mW_icpos, wait=True)
         mDet.move(mDet_icpos, wait=True)
         softglue.put('FI1_Signal', '')
+        # temp bmd fix one lione below
+        softglue.put('FI6_Signal', '')
         softglue.put('FO19_Signal', '0', wait=True)
         process_stop()
         tkMessageBox.showinfo('Done', 'Data collection complete')
@@ -1895,7 +1900,7 @@ elif config.stack_choice.get() == 'BMDHL':
     softglue = Device('16BMD:softGlue:', softglue_args)
     sg_config = Device('16BMD:SGMenu:', sg_config_args)
     abort = PV('16BMD:Unidig1Bo1')
-    mW_max = 10.0
+    mW_vmax = 10.0
 
 else:
     pass
@@ -1912,7 +1917,10 @@ if config.use_file.get():
 elif config.detector_choice.get() == '1M':
     detector = Device('HP1M-PIL1:cam1:', detector_args)
 elif config.detector_choice.get() == 'CCD':
-    detector = Device('16IDB:MARCCD:cam1:', detector_args)
+    if config.stack_choice.get() == ('BMDHL' or 'BMDHP'):
+        detector = Device('dp_mar165_xrd70:cam1:', detector_args)
+    else:
+        detector = Device('16IDB:MARCCD:cam1:', detector_args)
 elif config.detector_choice.get() == 'IP':
     detector = Device('16BMDMAR345:cam1:', detector_args)
 elif config.detector_choice.get() == 'PE':
