@@ -550,7 +550,7 @@ class Rotation:
                 else:
                     detector.FileName = prefix.sampleName.get()
                 detector.TriggerMode = 2
-                detector.FileNumber = prefix.imageNo.get()
+                detector.FileNumber = int(prefix.imageNo.get())
                 detector.NumImages = num_points
                 # set up trajectory
                 make_trajectory(zero=w_zero, min=self.wStart.get(), max=self.wEnd.get(), velo=temp_velo, motor=mW)
@@ -572,21 +572,32 @@ class Rotation:
                 image_num = detector.FileNumber + num_points - 1
                 string_image_num = str(image_num)
                 prefix.imageNo.set(string_image_num.zfill(3))
-                detector.FileNumber = image_num
+                detector.FileNumber = int(image_num)
                 detector.TriggerMode = 0
                 detector.NumImages = 1
                 mW.VELO = perm_velo
                 if not mcs.Acquiring:
                     ara = mcs.readmca(1)
+                    if config.stack_choice.get() == 'BMDHL':
+                        counts = mcs.reanmca(2)
+                    else:
+                        counts = mcs.readmca(4)
                     if isinstance(ara, int):
-                        print 'int'
+                        # print 'int'
                         total_time = ara/50e6
                     else:
-                        print 'array'
+                        # print 'array'
                         ara_bit = ara[0]
                         total_time = ara_bit/50e6
+                    if isinstance(counts, int):
+                        # print 'int'
+                        counts_bit = counts
+                    else:
+                        # print 'array'
+                        counts_bit = counts[0]
                     expected_time = self.tPerDeg.get()*self.wRange.get()
                     time_error = total_time - expected_time
+                    cps = int(counts_bit / total_time)
                     print total_time
                     print expected_time
                     print time_error
@@ -607,7 +618,8 @@ class Rotation:
                                    '{:>8}'.format('Cen X'), '{:>8}'.format('Cen Y'),
                                    '{:>8}'.format('Sam Z'), '{:>8}'.format('Det. Y'),
                                    '{:>8}'.format('Start'), '{:>8}'.format('End'),
-                                   '{:^8}'.format('Images'), '{:>8}'.format('Exp. time')]
+                                   '{:^8}'.format('Images'), '{:>8}'.format('Exp. time'),
+                                   '{:>10}'.format('CPS')]
                     header_three = ' '.join(header_list)
                     textfile = open(textfile_path, 'a')
                     textfile.write(header_one + '\n' * 2)
@@ -620,7 +632,8 @@ class Rotation:
                              '{: 8.3f}'.format(mX.RBV), '{: 8.3f}'.format(mY.RBV),
                              '{: 8.3f}'.format(mZ.RBV), '{: 8.3f}'.format(mDet.RBV),
                              '{: 8.2f}'.format(self.wStart.get()), '{:8.2f}'.format(self.wEnd.get()),
-                             '{:^9}'.format(num_points), '{:8.3f}'.format(exp_time)]
+                             '{:^9}'.format(num_points), '{:8.3f}'.format(exp_time),
+                             '{:10}'.format(cps)]
                 text_line = ' '.join(line_list)
                 textfile.write(text_line + '\n')
                 textfile.close()
@@ -716,7 +729,7 @@ class Rotation:
                         detector.FileName = full_file_name
                     else:
                         detector.FileName = prefix.sampleName.get()
-                    detector.FileNumber = prefix.imageNo.get()
+                    detector.FileNumber = int(prefix.imageNo.get())
                     # set up trajectory
                     make_trajectory(zero=w_zero, min=step_start, max=step_end, velo=temp_velo, motor=mW)
                     myxps = XPS_Q8_drivers.XPS()
@@ -741,6 +754,10 @@ class Rotation:
                     mW.VELO = perm_velo
                     if not mcs.Acquiring:
                         ara = mcs.readmca(1)
+                        if config.stack_choice.get() == 'BMDHL':
+                            counts = mcs.reanmca(2)
+                        else:
+                            counts = mcs.readmca(4)
                         if isinstance(ara, int):
                             # print 'int'
                             total_time = ara/50e6
@@ -748,13 +765,21 @@ class Rotation:
                             # print 'array'
                             ara_bit = ara[0]
                             total_time = ara_bit/50e6
+                        if isinstance(counts, int):
+                            # print 'int'
+                            counts_bit = counts
+                        else:
+                            # print 'array'
+                            counts_bit = counts[0]
                         expected_time = self.tPerDeg.get()*step_size
                         time_error = total_time - expected_time
+                        cps = int(counts_bit / total_time)
                         print total_time
                         print expected_time
                         print time_error
                     else:
                         mcs.stop()
+                        total_time=0.001
                     # get shutter sync info
                     shutter.shutter_error_calc(motor_dwell=total_time)
                     # Open (or create) text file for writing
@@ -771,7 +796,8 @@ class Rotation:
                                        '{:>8}'.format('Cen X'), '{:>8}'.format('Cen Y'),
                                        '{:>8}'.format('Sam Z'), '{:>8}'.format('Det. Y'),
                                        '{:>8}'.format('Start'), '{:>8}'.format('End'),
-                                       '{:^8}'.format('Images'), '{:>8}'.format('Exp. time')]
+                                       '{:^8}'.format('Images'), '{:>8}'.format('Exp. time'),
+                                       '{:>10}'.format('CPS')]
                         header_three = ' '.join(header_list)
                         textfile = open(textfile_path, 'a')
                         textfile.write(header_one + '\n' * 2)
@@ -784,7 +810,8 @@ class Rotation:
                                  '{: 8.3f}'.format(mX.RBV), '{: 8.3f}'.format(mY.RBV),
                                  '{: 8.3f}'.format(mZ.RBV), '{: 8.3f}'.format(mDet.RBV),
                                  '{: 8.2f}'.format(step_start), '{:8.2f}'.format(step_end),
-                                 '{:^9}'.format(1), '{:8.3f}'.format(actual_exposure)]
+                                 '{:^9}'.format(1), '{:8.3f}'.format(actual_exposure),
+                                 '{:10}'.format(cps)]
                     text_line = ' '.join(line_list)
                     textfile.write(text_line + '\n')
                     textfile.close()
@@ -892,7 +919,7 @@ class Rotation:
                         detector.FileName = full_file_name
                     else:
                         detector.FileName = prefix.sampleName.get()
-                    detector.FileNumber = prefix.imageNo.get()
+                    detector.FileNumber = int(prefix.imageNo.get())
                     # Final actions plus data collection move
                     time_stamp = time.strftime('%d %b %Y %H:%M:%S',
                                                time.localtime())
@@ -925,6 +952,7 @@ class Rotation:
                         print time_error
                     else:
                         mcs.stop()
+                        total_time = 0.001
                     # get shutter sync info
                     shutter.shutter_error_calc(motor_dwell=total_time)
                     # Open (or create) text file for writing
@@ -958,8 +986,8 @@ class Rotation:
                     text_line = ' '.join(line_list)
                     textfile.write(text_line + '\n')
                     textfile.close()
-
-
+                    if config.detector_choice.get() == 'IP':
+                        time.sleep(10.0)
 
 
 class CrystalSpot:
@@ -1293,7 +1321,10 @@ class Actions:
                         if config.detector_choice.get() == '1M':
                             det_n.dc_1m_diffraction()
                         elif config.detector_choice.get() == 'CCD':
-                            det_n.dc_ccd_diffraction()
+                            if config.stack_choice.get() == 'BMDHL':
+                                det_n.step_ccd_diffraction()
+                            else:
+                                det_n.dc_ccd_diffraction()
                         elif config.detector_choice.get() == 'IP':
                             det_n.step_ccd_diffraction()
         # return to initial positions (or resume continuous collection)
@@ -1725,6 +1756,11 @@ def path_put(**kwargs):
         windows_path = os.path.normpath(user_directory) + '\\'
         prefix.pathName.set(windows_path)
         # prefix.path_name_validation()
+    elif result[0:10] == '/mnt/16bmd':
+        user_directory = 'Z:' + result[10:]
+        windows_path = os.path.normpath(user_directory) + '\\'
+        prefix.pathName.set(windows_path)
+        # prefix.path_name_validation()
     else:
         windows_path = 'path error'
     if not os.path.exists(windows_path):
@@ -1755,7 +1791,7 @@ def xps_initialize():
 
 
 def make_trajectory(zero, min, max, velo, motor):
-    if config.stack_choice.get() == 'IDBLH':
+    if config.stack_choice.get() == 'LH':
         line_a = ['0.525', '0', '0', '0', '0', '0', '0', '0', '0']
         line_b = ['0', '0', '0', '0', '0', '0', '0', '0', '0']
         line_c = ['0.525', '0', '0', '0', '0', '0', '0', '0', '0']
