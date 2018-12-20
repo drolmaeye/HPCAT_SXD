@@ -1807,13 +1807,13 @@ def make_trajectory(zero, min, max, velo, motor):
     delta_xb = sign*(max - min)
     velo_ab = sign*velo
     delta_tb = delta_xb/velo_ab
-    if config.stack_choice.get() == 'GPHL':
-        line_a[9] = str(delta_xac)
-        line_a[10] = str(velo_ab)
+    if config.stack_choice.get() == 'GPHP':
+        line_a[5] = str(delta_xac)
+        line_a[6] = str(velo_ab)
         line_b[0] = str(delta_tb)
-        line_b[9] = str(delta_xb)
-        line_b[10] = str(velo_ab)
-        line_c[9] = str(delta_xac)
+        line_b[5] = str(delta_xb)
+        line_b[6] = str(velo_ab)
+        line_c[5] = str(delta_xac)
     else:
         line_a[7] = str(delta_xac)
         line_a[8] = str(velo_ab)
@@ -1879,8 +1879,8 @@ if config.use_file.get():
 elif config.stack_choice.get() == 'GPHP':
     mX = Motor('XPSGP:m1')
     mY = Motor('XPSGP:m2')
-    mZ = Motor('XPSGP:m3')
-    mW = Motor('XPSGP:m4')
+    mZ = Motor('16HEXGP:m3')
+    mW = Motor('XPSGP:m3')
     mDet = Motor('16IDB:m6')
     mcs = Struck('16IDB:SIS1:')
     softglue = Device('16IDB:softGlue:', softglue_args)
@@ -1890,10 +1890,10 @@ elif config.stack_choice.get() == 'GPHP':
     xps_ip = '164.54.164.24'
 
 elif config.stack_choice.get() == 'GPHL':
-    mX = Motor('16IDB:m31')
-    mY = Motor('16IDB:m32')
-    mZ = Motor('16IDB:m5')
-    mW = Motor('XPSGP:m5')
+    mX = Motor('16HEXGP:m1')
+    mY = Motor('16HEXGP:m2')
+    mZ = Motor('16HEXGP:m3')
+    mW = Motor('XPSGP:m4')
     mDet = Motor('16IDB:m6')
     mcs = Struck('16IDB:SIS1:')
     softglue = Device('16IDB:softGlue:', softglue_args)

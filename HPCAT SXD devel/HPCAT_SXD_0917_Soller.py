@@ -534,7 +534,8 @@ class Rotation:
                     mW.move(w_zero, wait=True)
                     mW.VELO = temp_velo
                 else:
-                    r = 35.43
+                    r = 62.700
+                    # ###GSECARS r = 35.430
                     sol_x_zero = -r + r*cos(w_zero*pi/180)
                     print str(sol_x_zero) + 'test'
                     sol_y_zero = r*sin(w_zero*pi/180)
@@ -2140,7 +2141,8 @@ def make_soller_trajectory(theta_zero, theta_min, theta_max, num_points, time_to
     # theta_range has to be negative, so min-max instead of max-min
     theta_range = theta_max - theta_min
     # r is offset
-    r = 35.43
+    r = 62.700
+    # ###GSECARS r = 34.430
     delta_time = time_total/(num_points - 1)
     print delta_time
     delta_theta = theta_range/(num_points - 1)
