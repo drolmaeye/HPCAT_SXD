@@ -1726,7 +1726,7 @@ class Extra:
         self.button_c_dn = Button(self.frame, text='Less', command=lambda: self.decrement(xtal_list))
         self.button_c_dn.grid(row=1, column=2, padx=5, pady=5)
         self.cbox_soller_flag = Checkbutton(self.frame, text='Soller', variable=self.soller_flag)
-        self.cbox_soller_flag.grid(row=0, rowspan=2, column=3, padx=5, pady=5)
+        # #grid#self.cbox_soller_flag.grid(row=0, rowspan=2, column=3, padx=5, pady=5)
 
         # omega step scan variables
         self.rel_min = DoubleVar()
@@ -1740,23 +1740,37 @@ class Extra:
 
         # omega step widgets
         self.cbox_omega_flag = Checkbutton(self.frame, text='Omega', variable=self.omega_flag)
-        self.cbox_omega_flag.grid(row=2, column=0, padx=5, pady=5)
+        # #grid#self.cbox_omega_flag.grid(row=2, column=0, padx=5, pady=5)
         self.entry_min = Entry(self.frame, textvariable=self.rel_min, width=8)
-        self.entry_min.grid(row=2, column=1, padx=5)
+        # #grid#self.entry_min.grid(row=2, column=1, padx=5)
         self.entry_min.bind('<FocusOut>', self.min_validate)
         self.entry_min.bind('<Return>', self.min_validate)
         self.label_step_size = Label(self.frame, textvariable=self.step_size,
                                      relief=SUNKEN, width=8)
-        self.label_step_size.grid(row=2, column=2, padx=5)
+        # #grid#self.label_step_size.grid(row=2, column=2, padx=5)
         self.entry_max = Entry(self.frame, textvariable=self.rel_max, width=8)
-        self.entry_max.grid(row=2, column=3, padx=5)
+        # #grid#self.entry_max.grid(row=2, column=3, padx=5)
         self.entry_max.bind('<FocusOut>', self.max_validate)
         self.entry_max.bind('<Return>', self.max_validate)
         self.entry_num_steps = Entry(self.frame, textvariable=self.num_steps,
                                      width=8)
-        self.entry_num_steps.grid(row=2, column=4, padx=5)
+        # #grid#self.entry_num_steps.grid(row=2, column=4, padx=5)
         self.entry_num_steps.bind('<FocusOut>', self.num_steps_validate)
         self.entry_num_steps.bind('<Return>', self.num_steps_validate)
+
+        # grid stuff for soller
+        if config.stack_choice.get() == 'GPSS':
+            self.cbox_soller_flag.grid(row=0, rowspan=2, column=3, padx=5, pady=5)
+            self.cbox_omega_flag.grid(row=2, column=0, padx=5, pady=5)
+            self.entry_min.grid(row=2, column=1, padx=5)
+            self.label_step_size.grid(row=2, column=2, padx=5)
+            self.entry_max.grid(row=2, column=3, padx=5)
+            self.entry_num_steps.grid(row=2, column=4, padx=5)
+
+
+
+
+
 
     def increment(self, target):
         for each in target[1:]:
